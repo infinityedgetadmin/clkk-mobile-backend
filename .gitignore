@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+.aws-sam/
+.aws-sam-build/
+**/dist/
+**/*.js
+**/*.d.ts
+**/*.js.map
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+env.json
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# AWS
+samconfig.toml.local
+packaged.yaml
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.pem
+*.key
+
+# Layer build artifacts
+layers/*/nodejs/package-lock.json
+layers/*/nodejs/node_modules/
+
+# GraphQL generated files (these will be generated)
+graphql/generated/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/

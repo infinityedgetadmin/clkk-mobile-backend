@@ -1,0 +1,11 @@
+{
+  "name": "@clkk/lambda-base",
+  "version": "1.0.0",
+  "description": "Base Lambda handler with optimizations",
+  "main": "src/index.ts",
+  "private": true,
+  "dependencies": {
+    "@middy/core": "^5.0.5",
+    "@types/aws-lambda": "^8.10.131"
+  }
+}

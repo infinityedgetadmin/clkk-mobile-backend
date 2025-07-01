@@ -1,0 +1,300 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  CLKK Backend V3 - GraphQL-first serverless architecture with AWS Lambda Powertools
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+
+  DomainName:
+    Type: String
+    Default: ""
+    Description: Custom domain name for the API (optional)
+
+  LogLevel:
+    Type: String
+    Default: INFO
+    AllowedValues:
+      - DEBUG
+      - INFO
+      - WARNING
+      - ERROR
+    Description: Log level for Lambda functions
+
+Conditions:
+  IsProd: !Equals [!Ref Environment, prod]
+  HasDomainName: !Not [!Equals [!Ref DomainName, ""]]
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 30
+    MemorySize: 1024
+    Tracing: Active
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        POWERTOOLS_SERVICE_NAME: clkk-backend
+        POWERTOOLS_METRICS_NAMESPACE: CLKK
+        LOG_LEVEL: !Ref LogLevel
+        POWERTOOLS_TRACER_CAPTURE_HTTPS_REQUESTS: true
+        POWERTOOLS_TRACER_CAPTURE_RESPONSE: !If [IsProd, false, true]
+        POWERTOOLS_LOGGER_LOG_EVENT: !If [IsProd, false, true]
+        POWERTOOLS_LOGGER_SAMPLE_RATE: !If [IsProd, 0.1, 1]
+    Layers:
+      - !Ref PowertoolsLayer
+      - !Ref CommonLayer
+    Tags:
+      Environment: !Ref Environment
+      Service: clkk-backend
+      Version: v3
+
+Resources:
+  # Lambda Layers
+  PowertoolsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-powertools"
+      Description: AWS Lambda Powertools for TypeScript
+      ContentUri: layers/powertools/
+      CompatibleRuntimes:
+        - nodejs22.x
+      RetentionPolicy: Retain
+    Metadata:
+      BuildMethod: makefile
+      BuildProperties:
+        MakefileProjectRoot: layers/powertools
+
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-common"
+      Description: Common utilities and shared code
+      ContentUri: layers/common/
+      CompatibleRuntimes:
+        - nodejs22.x
+      RetentionPolicy: Retain
+    Metadata:
+      BuildMethod: makefile
+      BuildProperties:
+        MakefileProjectRoot: layers/common
+
+  GraphQLTypesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-graphql-types"
+      Description: Generated GraphQL TypeScript types
+      ContentUri: layers/graphql-types/
+      CompatibleRuntimes:
+        - nodejs22.x
+      RetentionPolicy: Retain
+    Metadata:
+      BuildMethod: makefile
+      BuildProperties:
+        MakefileProjectRoot: layers/graphql-types
+
+  # Nested Stacks
+  DatabaseStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: stacks/database/template.yaml
+      Parameters:
+        StackName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  SharedStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: stacks/shared/template.yaml
+      Parameters:
+        StackName: !Ref AWS::StackName
+        Environment: !Ref Environment
+    DependsOn: DatabaseStack
+
+  ApiStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: stacks/api/template.yaml
+      Parameters:
+        StackName: !Ref AWS::StackName
+        Environment: !Ref Environment
+        DomainName: !Ref DomainName
+        ApplicationTableName: !GetAtt DatabaseStack.Outputs.ApplicationTableName
+        ApplicationTableArn: !GetAtt DatabaseStack.Outputs.ApplicationTableArn
+        PowertoolsLayerArn: !Ref PowertoolsLayer
+        GraphQLTypesLayerArn: !Ref GraphQLTypesLayer
+    DependsOn: SharedStack
+
+  UsersStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: stacks/users/template.yaml
+      Parameters:
+        StackName: !Ref AWS::StackName
+        Environment: !Ref Environment
+        ApplicationTableName: !GetAtt DatabaseStack.Outputs.ApplicationTableName
+        ApplicationTableArn: !GetAtt DatabaseStack.Outputs.ApplicationTableArn
+        GraphQLApiId: !GetAtt ApiStack.Outputs.GraphQLApiId
+        GraphQLApiArn: !GetAtt ApiStack.Outputs.GraphQLApiArn
+        PowertoolsLayerArn: !Ref PowertoolsLayer
+        CommonLayerArn: !Ref CommonLayer
+        GraphQLTypesLayerArn: !Ref GraphQLTypesLayer
+    DependsOn: ApiStack
+
+  # CloudWatch Dashboard
+  MonitoringDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "${AWS::StackName}-powertools"
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["CLKK", "UserCreated", {"stat": "Sum"}],
+                  [".", "UserCreationError", {"stat": "Sum"}],
+                  [".", "UserUpdated", {"stat": "Sum"}],
+                  [".", "UserQueryError", {"stat": "Sum"}]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "${AWS::Region}",
+                "title": "User Service Metrics"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/Lambda", "Duration", {"stat": "Average"}],
+                  [".", "Errors", {"stat": "Sum"}],
+                  [".", "Throttles", {"stat": "Sum"}],
+                  [".", "ConcurrentExecutions", {"stat": "Maximum"}]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "${AWS::Region}",
+                "title": "Lambda Performance",
+                "view": "timeSeries",
+                "stacked": false
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/AppSync", "4XXError", {"stat": "Sum"}],
+                  [".", "5XXError", {"stat": "Sum"}],
+                  [".", "Latency", {"stat": "Average"}]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "${AWS::Region}",
+                "title": "AppSync API Metrics"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/DynamoDB", "ConsumedReadCapacityUnits", {"stat": "Sum"}],
+                  [".", "ConsumedWriteCapacityUnits", {"stat": "Sum"}],
+                  [".", "UserErrors", {"stat": "Sum"}],
+                  [".", "SystemErrors", {"stat": "Sum"}]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "${AWS::Region}",
+                "title": "DynamoDB Performance"
+              }
+            }
+          ]
+        }
+
+  # CloudWatch Alarms
+  UserCreationErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-user-creation-errors"
+      AlarmDescription: Alert when user creation errors exceed threshold
+      MetricName: UserCreationError
+      Namespace: CLKK
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: service
+          Value: users-service
+        - Name: environment
+          Value: !Ref Environment
+
+  ApiErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-api-errors"
+      AlarmDescription: Alert when API errors exceed threshold
+      MetricName: 5XXError
+      Namespace: AWS/AppSync
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+Outputs:
+  GraphQLApiEndpoint:
+    Description: GraphQL API endpoint URL
+    Value: !GetAtt ApiStack.Outputs.GraphQLApiEndpoint
+    Export:
+      Name: !Sub "${AWS::StackName}-GraphQLApiEndpoint"
+
+  GraphQLApiId:
+    Description: GraphQL API ID
+    Value: !GetAtt ApiStack.Outputs.GraphQLApiId
+    Export:
+      Name: !Sub "${AWS::StackName}-GraphQLApiId"
+
+  ApplicationTableName:
+    Description: DynamoDB application table name
+    Value: !GetAtt DatabaseStack.Outputs.ApplicationTableName
+    Export:
+      Name: !Sub "${AWS::StackName}-ApplicationTableName"
+
+  DashboardURL:
+    Description: CloudWatch Dashboard URL
+    Value: !Sub "https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${AWS::StackName}-powertools"
+
+  StackName:
+    Description: CloudFormation stack name
+    Value: !Ref AWS::StackName

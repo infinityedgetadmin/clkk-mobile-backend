@@ -1,0 +1,262 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Shared resources stack for CLKK Backend V3
+
+Parameters:
+  StackName:
+    Type: String
+    Description: Parent stack name
+  
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+
+Conditions:
+  IsProd: !Equals [!Ref Environment, prod]
+
+Resources:
+  # S3 Bucket for file uploads (KYC documents, profile images, etc.)
+  FileUploadBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${StackName}-uploads-${Environment}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: !If [IsProd, Enabled, Suspended]
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+          - Id: TransitionToIA
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 90
+                StorageClass: STANDARD_IA
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+            AllowedOrigins:
+              - "*"
+            ExposedHeaders:
+              - ETag
+            MaxAge: 3600
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: clkk-backend
+
+  # Dead Letter Queue for failed processing
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${StackName}-dlq"
+      MessageRetentionPeriod: 1209600 # 14 days
+      KmsMasterKeyId: alias/aws/sqs
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # SQS Queue for async processing
+  ProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${StackName}-processing-queue"
+      VisibilityTimeout: 300 # 5 minutes
+      MessageRetentionPeriod: 86400 # 1 day
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: 3
+      KmsMasterKeyId: alias/aws/sqs
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # SNS Topic for notifications
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${StackName}-notifications"
+      DisplayName: CLKK Backend Notifications
+      KmsMasterKeyId: alias/aws/sns
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # EventBridge Event Bus for domain events
+  EventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub "${StackName}-events"
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # EventBridge Rule for user events
+  UserEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${StackName}-user-events"
+      Description: Route user domain events
+      EventBusName: !Ref EventBus
+      EventPattern:
+        source:
+          - clkk.users
+        detail-type:
+          - User Created
+          - User Updated
+          - KYC Initiated
+          - KYC Completed
+      State: ENABLED
+      Targets:
+        - Arn: !Ref NotificationTopic
+          Id: UserEventsSNS
+
+  # Parameter Store entries
+  ApiKeyParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${StackName}/${Environment}/api-key"
+      Type: String
+      Value: "placeholder-will-be-updated"
+      Description: GraphQL API Key
+      Tags:
+        Environment: !Ref Environment
+
+  # Secrets Manager for sensitive data
+  ClerkWebhookSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${StackName}/${Environment}/clerk-webhook-secret"
+      Description: Clerk webhook signing secret
+      SecretString: !Sub |
+        {
+          "secret": "placeholder-will-be-updated"
+        }
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CloudWatch Log Group for API logs
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/appsync/${StackName}"
+      RetentionInDays: !If [IsProd, 30, 7]
+
+  # IAM Role for Lambda functions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${StackName}-lambda-execution-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+      Policies:
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+        - PolicyName: Metrics
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: CLKK
+        - PolicyName: ParameterStore
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${StackName}/*"
+        - PolicyName: SecretsManager
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${StackName}/*"
+
+Outputs:
+  FileUploadBucketName:
+    Description: Name of the file upload S3 bucket
+    Value: !Ref FileUploadBucket
+    Export:
+      Name: !Sub "${StackName}-FileUploadBucketName"
+  
+  FileUploadBucketArn:
+    Description: ARN of the file upload S3 bucket
+    Value: !GetAtt FileUploadBucket.Arn
+    Export:
+      Name: !Sub "${StackName}-FileUploadBucketArn"
+  
+  ProcessingQueueUrl:
+    Description: URL of the processing SQS queue
+    Value: !Ref ProcessingQueue
+    Export:
+      Name: !Sub "${StackName}-ProcessingQueueUrl"
+  
+  ProcessingQueueArn:
+    Description: ARN of the processing SQS queue
+    Value: !GetAtt ProcessingQueue.Arn
+    Export:
+      Name: !Sub "${StackName}-ProcessingQueueArn"
+  
+  NotificationTopicArn:
+    Description: ARN of the notification SNS topic
+    Value: !Ref NotificationTopic
+    Export:
+      Name: !Sub "${StackName}-NotificationTopicArn"
+  
+  EventBusName:
+    Description: Name of the EventBridge event bus
+    Value: !Ref EventBus
+    Export:
+      Name: !Sub "${StackName}-EventBusName"
+  
+  LambdaExecutionRoleArn:
+    Description: ARN of the Lambda execution role
+    Value: !GetAtt LambdaExecutionRole.Arn
+    Export:
+      Name: !Sub "${StackName}-LambdaExecutionRoleArn"

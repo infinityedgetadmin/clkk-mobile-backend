@@ -1,0 +1,235 @@
+# CLKK Backend V3 GraphQL Schema
+# This schema defines the GraphQL API for the CLKK mobile application
+
+scalar AWSDateTime
+scalar AWSEmail
+scalar AWSPhone
+scalar AWSJSON
+
+# User Types
+type User {
+  id: ID!
+  clerkId: String!
+  email: AWSEmail!
+  phoneNumber: AWSPhone
+  firstName: String
+  lastName: String
+  clkkTag: String
+  kycStatus: KYCStatus!
+  kycDetails: KYCDetails
+  profileImageUrl: String
+  dateOfBirth: String
+  address: Address
+  metadata: AWSJSON
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type KYCDetails {
+  provider: String
+  verificationId: String
+  status: KYCStatus!
+  verifiedAt: AWSDateTime
+  documents: [KYCDocument!]
+}
+
+type KYCDocument {
+  type: DocumentType!
+  status: DocumentStatus!
+  uploadedAt: AWSDateTime!
+  verifiedAt: AWSDateTime
+  url: String
+}
+
+type Address {
+  street1: String!
+  street2: String
+  city: String!
+  state: String!
+  postalCode: String!
+  country: String!
+}
+
+# Wallet Types
+type Wallet {
+  id: ID!
+  userId: ID!
+  balance: Money!
+  status: WalletStatus!
+  type: WalletType!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type Money {
+  amount: Int! # Amount in cents
+  currency: Currency!
+}
+
+# Transaction Types
+type Transaction {
+  id: ID!
+  userId: ID!
+  walletId: ID!
+  type: TransactionType!
+  status: TransactionStatus!
+  amount: Money!
+  description: String
+  metadata: AWSJSON
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+# Enums
+enum KYCStatus {
+  NOT_STARTED
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum DocumentType {
+  DRIVERS_LICENSE
+  PASSPORT
+  ID_CARD
+  PROOF_OF_ADDRESS
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum WalletStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum WalletType {
+  FIAT
+  CRYPTO
+}
+
+enum Currency {
+  USD
+  EUR
+  GBP
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  FEE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+# Input Types
+input CreateUserInput {
+  clerkId: String!
+  email: AWSEmail!
+  phoneNumber: AWSPhone
+  firstName: String
+  lastName: String
+}
+
+input UpdateUserInput {
+  firstName: String
+  lastName: String
+  phoneNumber: AWSPhone
+  profileImageUrl: String
+  dateOfBirth: String
+  address: AddressInput
+}
+
+input AddressInput {
+  street1: String!
+  street2: String
+  city: String!
+  state: String!
+  postalCode: String!
+  country: String!
+}
+
+input KYCDocumentInput {
+  type: DocumentType!
+  fileKey: String!
+}
+
+# Webhook Input Types (for backend mutations)
+input ClerkWebhookInput {
+  type: String!
+  data: AWSJSON!
+}
+
+# Query Types
+type Query {
+  # User queries
+  getUser(id: ID!): User
+  getUserByClerkId(clerkId: String!): User
+  getUserByEmail(email: AWSEmail!): User
+  getUserByClkkTag(clkkTag: String!): User
+  
+  # Wallet queries
+  getWallet(id: ID!): Wallet
+  getUserWallets(userId: ID!): [Wallet!]!
+  
+  # Transaction queries
+  getTransaction(id: ID!): Transaction
+  getUserTransactions(
+    userId: ID!
+    limit: Int
+    nextToken: String
+    startDate: AWSDateTime
+    endDate: AWSDateTime
+  ): TransactionConnection!
+}
+
+type TransactionConnection {
+  items: [Transaction!]!
+  nextToken: String
+  totalCount: Int
+}
+
+# Mutation Types
+type Mutation {
+  # User mutations
+  createUser(input: CreateUserInput!): User!
+  updateUser(id: ID!, input: UpdateUserInput!): User!
+  
+  # KYC mutations
+  initiateKYC(userId: ID!): KYCDetails!
+  uploadKYCDocument(userId: ID!, document: KYCDocumentInput!): KYCDocument!
+  
+  # Webhook mutations (internal use only - called by Lambda authorizer)
+  processClerkWebhook(input: ClerkWebhookInput!): WebhookResponse!
+  
+  # Wallet mutations (Phase 2)
+  # createWallet(userId: ID!, type: WalletType!): Wallet!
+  
+  # Transaction mutations (Phase 2)
+  # createTransaction(input: CreateTransactionInput!): Transaction!
+}
+
+type WebhookResponse {
+  success: Boolean!
+  message: String
+}
+
+# Subscriptions (future implementation)
+# type Subscription {
+#   onTransactionCreated(userId: ID!): Transaction
+#   onWalletUpdated(userId: ID!): Wallet
+# }

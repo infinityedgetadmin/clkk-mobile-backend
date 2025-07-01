@@ -1,0 +1,207 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Database stack for CLKK Backend V3 - Single table design
+
+Parameters:
+  StackName:
+    Type: String
+    Description: Parent stack name
+  
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+
+Conditions:
+  IsProd: !Equals [!Ref Environment, prod]
+
+Resources:
+  # Main application table with single-table design
+  ApplicationTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub "${StackName}-app-table"
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      AttributeDefinitions:
+        # Primary key attributes
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        # GSI attributes
+        - AttributeName: ExternalIdKey
+          AttributeType: S
+        - AttributeName: EmailKey
+          AttributeType: S
+        - AttributeName: ClkkTagKey
+          AttributeType: S
+        - AttributeName: TimeSortKey
+          AttributeType: S
+        - AttributeName: TypeStatusKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        # GSI for looking up users by external IDs (Clerk, Cybrid, etc.)
+        - IndexName: ExternalIdIndex
+          KeySchema:
+            - AttributeName: ExternalIdKey
+              KeyType: HASH
+            - AttributeName: SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        
+        # GSI for looking up users by email
+        - IndexName: EmailIndex
+          KeySchema:
+            - AttributeName: EmailKey
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        
+        # GSI for looking up users by CLKK tag
+        - IndexName: ClkkTagIndex
+          KeySchema:
+            - AttributeName: ClkkTagKey
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        
+        # GSI for time-based queries (transactions, events, etc.)
+        - IndexName: TimeSortIndex
+          KeySchema:
+            - AttributeName: PK
+              KeyType: HASH
+            - AttributeName: TimeSortKey
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        
+        # GSI for type/status queries
+        - IndexName: TypeStatusIndex
+          KeySchema:
+            - AttributeName: TypeStatusKey
+              KeyType: HASH
+            - AttributeName: TimeSortKey
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: clkk-backend
+        - Key: Component
+          Value: database
+        - Key: BackupFrequency
+          Value: !If [IsProd, "daily", "none"]
+
+  # DynamoDB stream processing function (placeholder for future use)
+  DynamoStreamProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${StackName}-stream-processor"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      InlineCode: |
+        exports.handler = async (event) => {
+          console.log('DynamoDB Stream Event:', JSON.stringify(event, null, 2));
+          // Future implementation for stream processing
+          // Process each record
+          for (const record of event.Records) {
+            try {
+              console.log('Processing record:', record.eventName, record.dynamodb);
+              // Add your processing logic here
+            } catch (error) {
+              console.error('Error processing record:', error);
+              // For DynamoDB streams, we can't report individual failures
+              // The entire batch will be retried
+            }
+          }
+          return 'Successfully processed ' + event.Records.length + ' records.';
+        };
+      Events:
+        Stream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt ApplicationTable.StreamArn
+            StartingPosition: LATEST
+            BisectBatchOnFunctionError: true
+            MaximumBatchingWindowInSeconds: 10
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - DynamoDBStreamReadPolicy:
+            TableName: !Ref ApplicationTable
+            StreamName: !Select [3, !Split ["/", !GetAtt ApplicationTable.StreamArn]]
+
+  # CloudWatch Alarms for DynamoDB
+  TableThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${StackName}-table-throttle"
+      AlarmDescription: Alert when DynamoDB table experiences throttling
+      MetricName: UserErrors
+      Namespace: AWS/DynamoDB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: TableName
+          Value: !Ref ApplicationTable
+      TreatMissingData: notBreaching
+
+  TableSystemErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${StackName}-table-system-errors"
+      AlarmDescription: Alert when DynamoDB table experiences system errors
+      MetricName: SystemErrors
+      Namespace: AWS/DynamoDB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: TableName
+          Value: !Ref ApplicationTable
+      TreatMissingData: notBreaching
+
+Outputs:
+  ApplicationTableName:
+    Description: Name of the DynamoDB application table
+    Value: !Ref ApplicationTable
+    Export:
+      Name: !Sub "${StackName}-ApplicationTableName"
+  
+  ApplicationTableArn:
+    Description: ARN of the DynamoDB application table
+    Value: !GetAtt ApplicationTable.Arn
+    Export:
+      Name: !Sub "${StackName}-ApplicationTableArn"
+  
+  ApplicationTableStreamArn:
+    Description: ARN of the DynamoDB table stream
+    Value: !GetAtt ApplicationTable.StreamArn
+    Export:
+      Name: !Sub "${StackName}-ApplicationTableStreamArn"
