@@ -8,17 +8,17 @@ The platform stack creates the following SSM parameters that can be used by othe
 - `/clkk/platform/hosted-zone-id` - Route 53 Hosted Zone ID
 
 ## Domain Name
-- `/clkk/platform/domain-name` - Root domain name (e.g., clkk-api.com)
+- `/clkk/platform/domain-name` - Root domain name (e.g., clkk-api.io)
 
 ## API Certificates
-- `/clkk/platform/certificates/prod` - Production API certificate ARN (api.clkk-api.com)
-- `/clkk/platform/certificates/staging` - Staging API certificate ARN (api.staging.clkk-api.com)
-- `/clkk/platform/certificates/dev` - Development API certificate ARN (api.dev.clkk-api.com)
+- `/clkk/platform/certificates/prod` - Production API certificate ARN (api.clkk-api.io)
+- `/clkk/platform/certificates/staging` - Staging API certificate ARN (api.staging.clkk-api.io)
+- `/clkk/platform/certificates/dev` - Development API certificate ARN (api.dev.clkk-api.io)
 
 ## Mobile Certificates
-- `/clkk/platform/certificates/mobile/prod` - Production mobile certificate ARN (mobile.clkk-api.com)
-- `/clkk/platform/certificates/mobile/staging` - Staging mobile certificate ARN (mobile.staging.clkk-api.com)
-- `/clkk/platform/certificates/mobile/dev` - Development mobile certificate ARN (mobile.dev.clkk-api.com)
+- `/clkk/platform/certificates/mobile/prod` - Production mobile certificate ARN (mobile.clkk-api.io)
+- `/clkk/platform/certificates/mobile/staging` - Staging mobile certificate ARN (mobile.staging.clkk-api.io)
+- `/clkk/platform/certificates/mobile/dev` - Development mobile certificate ARN (mobile.dev.clkk-api.io)
 
 ## Usage in Other Stacks
 
@@ -51,11 +51,11 @@ Parameters:
 ## Environment-Specific Domains
 
 ### API Endpoints:
-- Production: https://api.clkk-api.com
-- Staging: https://api.staging.clkk-api.com
-- Development: https://api.dev.clkk-api.com
+- Production: https://api.clkk-api.io
+- Staging: https://api.staging.clkk-api.io
+- Development: https://api.dev.clkk-api.io
 
 ### Mobile GraphQL Endpoints:
-- Production: https://mobile.clkk-api.com/graphql
-- Staging: https://mobile.staging.clkk-api.com/graphql
-- Development: https://mobile.dev.clkk-api.com/graphql
+- Production: https://mobile.clkk-api.io/graphql
+- Staging: https://mobile.staging.clkk-api.io/graphql
+- Development: https://mobile.dev.clkk-api.io/graphql

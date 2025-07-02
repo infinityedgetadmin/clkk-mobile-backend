@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: Cross-Account DNS Custom Resource for CLKK Mobile Backend (Deploy in DEV/STAGING account)
+Description: Cross-Account DNS Custom Resource (Deploy in DEV/STAGING account)
 
 Parameters:
   Environment:
@@ -9,19 +9,15 @@ Parameters:
     AllowedValues:
       - dev
       - staging
-    Description: The deployment environment (not for prod)
-  
-  ProductionAccountId:
-    Type: String
-    Default: "422160113808"
-    Description: AWS Account ID where Route53 hosted zone lives
+      - prod
+    Description: The deployment environment
 
 Resources:
   # Lambda execution role
   DNSManagerRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "${Environment}-clkk-mobile-dns-manager-role"
+      RoleName: !Sub "${Environment}-clkk-dns-manager-role"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -38,22 +34,22 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub "arn:aws:iam::${ProductionAccountId}:role/clkk-cross-account-dns-role"
+                Resource: "arn:aws:iam::422160113808:role/clkk-cross-account-dns-role"
 
   # Lambda function to manage DNS records
   CrossAccountDNSFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${Environment}-clkk-mobile-cross-account-dns"
-      Description: Manages DNS records in production account Route53 for mobile backend
-      Runtime: python3.11
+      FunctionName: !Sub "${Environment}-clkk-cross-account-dns"
+      Description: Manages DNS records in production account Route53
+      Runtime: python3.9
       Handler: index.handler
       Role: !GetAtt DNSManagerRole.Arn
       Timeout: 300
       MemorySize: 256
       Environment:
         Variables:
-          PROD_ROLE_ARN: !Sub "arn:aws:iam::${ProductionAccountId}:role/clkk-cross-account-dns-role"
+          PROD_ROLE_ARN: "arn:aws:iam::422160113808:role/clkk-cross-account-dns-role"
           EXTERNAL_ID: "clkk-dns-management"
       InlineCode: |
         import json

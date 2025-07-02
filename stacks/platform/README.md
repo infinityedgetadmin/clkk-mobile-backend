@@ -17,16 +17,16 @@ The platform stack creates:
 
 ```
 Production Account:
-├── Route 53 Hosted Zone (clkk-api.com)
+├── Route 53 Hosted Zone (clkk-api.io)
 ├── SSL Certificates
 │   ├── API Certificates:
-│   │   ├── Production: api.clkk-api.com
-│   │   ├── Staging: api.staging.clkk-api.com
-│   │   └── Development: api.dev.clkk-api.com
+│   │   ├── Production: api.clkk-api.io
+│   │   ├── Staging: api.staging.clkk-api.io
+│   │   └── Development: api.dev.clkk-api.io
 │   └── Mobile Certificates:
-│       ├── Production: mobile.clkk-api.com
-│       ├── Staging: mobile.staging.clkk-api.com
-│       └── Development: mobile.dev.clkk-api.com
+│       ├── Production: mobile.clkk-api.io
+│       ├── Staging: mobile.staging.clkk-api.io
+│       └── Development: mobile.dev.clkk-api.io
 └── SSM Parameters (for cross-stack access)
 ```
 
@@ -35,25 +35,25 @@ Production Account:
 The platform stack supports multiple service endpoints:
 
 ### REST API Endpoints (Path-based routing):
-- **Production**: `https://api.clkk-api.com`
-  - Admin API: `https://api.clkk-api.com/admin`
-  - User API: `https://api.clkk-api.com/api`
-  - Webhooks: `https://api.clkk-api.com/webhooks`
+- **Production**: `https://api.clkk-api.io`
+  - Admin API: `https://api.clkk-api.io/admin`
+  - User API: `https://api.clkk-api.io/api`
+  - Webhooks: `https://api.clkk-api.io/webhooks`
 
-- **Staging**: `https://api.staging.clkk-api.com`
-  - Admin API: `https://api.staging.clkk-api.com/admin`
-  - User API: `https://api.staging.clkk-api.com/api`
-  - Webhooks: `https://api.staging.clkk-api.com/webhooks`
+- **Staging**: `https://api.staging.clkk-api.io`
+  - Admin API: `https://api.staging.clkk-api.io/admin`
+  - User API: `https://api.staging.clkk-api.io/api`
+  - Webhooks: `https://api.staging.clkk-api.io/webhooks`
 
-- **Development**: `https://api.dev.clkk-api.com`
-  - Admin API: `https://api.dev.clkk-api.com/admin`
-  - User API: `https://api.dev.clkk-api.com/api`
-  - Webhooks: `https://api.dev.clkk-api.com/webhooks`
+- **Development**: `https://api.dev.clkk-api.io`
+  - Admin API: `https://api.dev.clkk-api.io/admin`
+  - User API: `https://api.dev.clkk-api.io/api`
+  - Webhooks: `https://api.dev.clkk-api.io/webhooks`
 
 ### Mobile GraphQL Endpoints:
-- **Production**: `https://mobile.clkk-api.com/graphql`
-- **Staging**: `https://mobile.staging.clkk-api.com/graphql`
-- **Development**: `https://mobile.dev.clkk-api.com/graphql`
+- **Production**: `https://mobile.clkk-api.io/graphql`
+- **Staging**: `https://mobile.staging.clkk-api.io/graphql`
+- **Development**: `https://mobile.dev.clkk-api.io/graphql`
 
 ## Deployment
 
@@ -67,14 +67,14 @@ The platform stack supports multiple service endpoints:
 
 ```bash
 # Using the deployment script
-./deploy-platform.sh --profile clkk-saas-prod --domain clkk-api.com
+./deploy-platform.sh --profile clkk-saas-prod --domain clkk-api.io
 
 # Or manually with SAM
 AWS_PROFILE=clkk-saas-prod AWS_SDK_LOAD_CONFIG=1 sam deploy \
   --template-file platform-stack.yaml \
   --stack-name clkk-platform-stack \
   --capabilities CAPABILITY_IAM \
-  --parameter-overrides Environment=prod DomainName=clkk-api.com \
+  --parameter-overrides Environment=prod DomainName=clkk-api.io \
   --no-confirm-changeset
 ```
 
@@ -84,7 +84,7 @@ AWS_PROFILE=clkk-saas-prod AWS_SDK_LOAD_CONFIG=1 sam deploy \
 
 2. **Verify DNS**: Use `dig` or `nslookup` to verify DNS resolution:
    ```bash
-   dig clkk-api.com NS
+   dig clkk-api.io NS
    ```
 
 3. **Certificate Validation**: The ACM certificates will automatically validate via DNS once the nameservers are configured.
