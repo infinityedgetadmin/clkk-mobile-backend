@@ -192,16 +192,16 @@ Outputs:
     Description: Name of the DynamoDB application table
     Value: !Ref ApplicationTable
     Export:
-      Name: !Sub "${StackName}-ApplicationTableName"
+      Name: !Sub "${AWS::StackName}-ApplicationTableName"
   
   ApplicationTableArn:
     Description: ARN of the DynamoDB application table
     Value: !GetAtt ApplicationTable.Arn
     Export:
-      Name: !Sub "${StackName}-ApplicationTableArn"
+      Name: !Sub "${AWS::StackName}-ApplicationTableArn"
   
   ApplicationTableStreamArn:
     Description: ARN of the DynamoDB table stream
     Value: !GetAtt ApplicationTable.StreamArn
     Export:
-      Name: !Sub "${StackName}-ApplicationTableStreamArn"
+      Name: !Sub "${AWS::StackName}-ApplicationTableStreamArn"

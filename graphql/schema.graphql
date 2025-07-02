@@ -176,6 +176,9 @@ input ClerkWebhookInput {
 
 # Query Types
 type Query {
+  # Health check
+  health: String!
+  
   # User queries
   getUser(id: ID!): User
   getUserByClerkId(clerkId: String!): User

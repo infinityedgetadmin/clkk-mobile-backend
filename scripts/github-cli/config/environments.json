@@ -1,0 +1,18 @@
+{
+  "environments": [
+    {
+      "name": "staging",
+      "wait_timer": 0,
+      "prevent_self_review": false,
+      "protected_branches": false,
+      "reviewers": []
+    },
+    {
+      "name": "production",
+      "wait_timer": 5,
+      "prevent_self_review": true,
+      "protected_branches": true,
+      "reviewers": []
+    }
+  ]
+}

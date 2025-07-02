@@ -249,6 +249,13 @@ generate-schema-docs: ## Generate GraphQL schema documentation
 		echo "${RED}Error: GraphQL schema not found${NC}"; \
 	fi
 
+##@ Custom Domain Management
+
+deploy-with-domain: ## Deploy with shared CLKK platform domain
+	@echo "${GREEN}Deploying with shared domain for $(ENVIRONMENT)...${NC}"
+	@echo "${YELLOW}This requires the CLKK platform stack to be deployed first${NC}"
+	bash scripts/deploy-with-shared-domain.sh $(ENVIRONMENT)
+
 ##@ Security
 
 scan-deps: ## Scan dependencies for vulnerabilities
@@ -263,15 +270,7 @@ fix-vulnerabilities: ## Fix dependency vulnerabilities
 
 create-env: ## Create environment file template
 	@echo "${GREEN}Creating environment file template...${NC}"
-	@cat > env.json <<EOF
-{
-  "Parameters": {
-    "ENVIRONMENT": "local",
-    "LOG_LEVEL": "DEBUG",
-    "TABLE_NAME": "clkk-app-table-local"
-  }
-}
-EOF
+	@echo '{\n  "Parameters": {\n    "ENVIRONMENT": "local",\n    "LOG_LEVEL": "DEBUG",\n    "TABLE_NAME": "clkk-app-table-local"\n  }\n}' > env.json
 	@echo "Created env.json template"
 
 init: install create-env ## Initialize project

@@ -4,11 +4,8 @@
 
 build-CommonLayer:
 	@echo "Building Common layer..."
-	cd nodejs && npm install --production
-	cd nodejs && npx tsc --init --target es2022 --module commonjs --outDir ./dist --rootDir ./src --esModuleInterop true --skipLibCheck true --forceConsistentCasingInFileNames true
-	cd nodejs && npx tsc
+	cd nodejs && npm install --omit=dev
 	cp -r nodejs/node_modules $(ARTIFACTS_DIR)/
-	cp -r nodejs/dist/* $(ARTIFACTS_DIR)/
 	@echo "Common layer built successfully"
 
 clean:

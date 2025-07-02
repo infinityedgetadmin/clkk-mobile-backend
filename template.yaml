@@ -13,10 +13,6 @@ Parameters:
       - prod
     Description: Environment name
 
-  DomainName:
-    Type: String
-    Default: ""
-    Description: Custom domain name for the API (optional)
 
   LogLevel:
     Type: String
@@ -30,7 +26,6 @@ Parameters:
 
 Conditions:
   IsProd: !Equals [!Ref Environment, prod]
-  HasDomainName: !Not [!Equals [!Ref DomainName, ""]]
 
 Globals:
   Function:
@@ -67,7 +62,7 @@ Resources:
       Description: AWS Lambda Powertools for TypeScript
       ContentUri: layers/powertools/
       CompatibleRuntimes:
-        - nodejs22.x
+        - nodejs20.x
       RetentionPolicy: Retain
     Metadata:
       BuildMethod: makefile
@@ -81,7 +76,7 @@ Resources:
       Description: Common utilities and shared code
       ContentUri: layers/common/
       CompatibleRuntimes:
-        - nodejs22.x
+        - nodejs20.x
       RetentionPolicy: Retain
     Metadata:
       BuildMethod: makefile
@@ -95,7 +90,7 @@ Resources:
       Description: Generated GraphQL TypeScript types
       ContentUri: layers/graphql-types/
       CompatibleRuntimes:
-        - nodejs22.x
+        - nodejs20.x
       RetentionPolicy: Retain
     Metadata:
       BuildMethod: makefile
@@ -127,28 +122,27 @@ Resources:
       Parameters:
         StackName: !Ref AWS::StackName
         Environment: !Ref Environment
-        DomainName: !Ref DomainName
         ApplicationTableName: !GetAtt DatabaseStack.Outputs.ApplicationTableName
         ApplicationTableArn: !GetAtt DatabaseStack.Outputs.ApplicationTableArn
         PowertoolsLayerArn: !Ref PowertoolsLayer
         GraphQLTypesLayerArn: !Ref GraphQLTypesLayer
     DependsOn: SharedStack
 
-  UsersStack:
-    Type: AWS::Serverless::Application
-    Properties:
-      Location: stacks/users/template.yaml
-      Parameters:
-        StackName: !Ref AWS::StackName
-        Environment: !Ref Environment
-        ApplicationTableName: !GetAtt DatabaseStack.Outputs.ApplicationTableName
-        ApplicationTableArn: !GetAtt DatabaseStack.Outputs.ApplicationTableArn
-        GraphQLApiId: !GetAtt ApiStack.Outputs.GraphQLApiId
-        GraphQLApiArn: !GetAtt ApiStack.Outputs.GraphQLApiArn
-        PowertoolsLayerArn: !Ref PowertoolsLayer
-        CommonLayerArn: !Ref CommonLayer
-        GraphQLTypesLayerArn: !Ref GraphQLTypesLayer
-    DependsOn: ApiStack
+  # UsersStack:
+  #   Type: AWS::Serverless::Application
+  #   Properties:
+  #     Location: stacks/users/template.yaml
+  #     Parameters:
+  #       StackName: !Ref AWS::StackName
+  #       Environment: !Ref Environment
+  #       ApplicationTableName: !GetAtt DatabaseStack.Outputs.ApplicationTableName
+  #       ApplicationTableArn: !GetAtt DatabaseStack.Outputs.ApplicationTableArn
+  #       GraphQLApiId: !GetAtt ApiStack.Outputs.GraphQLApiId
+  #       GraphQLApiArn: !GetAtt ApiStack.Outputs.GraphQLApiArn
+  #       PowertoolsLayerArn: !Ref PowertoolsLayer
+  #       CommonLayerArn: !Ref CommonLayer
+  #       GraphQLTypesLayerArn: !Ref GraphQLTypesLayer
+  #   DependsOn: ApiStack
 
   # CloudWatch Dashboard
   MonitoringDashboard:

@@ -15,10 +15,6 @@ Parameters:
       - prod
     Description: Environment name
   
-  DomainName:
-    Type: String
-    Default: ""
-    Description: Custom domain name for the API (optional)
   
   ApplicationTableName:
     Type: String
@@ -36,8 +32,6 @@ Parameters:
     Type: String
     Description: ARN of the GraphQL types Lambda layer
 
-Conditions:
-  HasDomainName: !Not [!Equals [!Ref DomainName, ""]]
 
 Resources:
   # AppSync GraphQL API
@@ -119,6 +113,9 @@ Resources:
         Sourcemap: false
         EntryPoints:
           - index.ts
+        External:
+          - "@aws-lambda-powertools/*"
+          - "@aws-sdk/*"
 
   # Permission for AppSync to invoke the authorizer
   AuthorizerInvokePermission:
@@ -150,21 +147,6 @@ Resources:
       LogGroupName: !Sub "/aws/appsync/apis/${GraphQLApi.ApiId}"
       RetentionInDays: 7
 
-  # Custom Domain (if provided)
-  # Note: Domain certificate must already exist in ACM
-  # CustomDomain:
-  #   Type: AWS::AppSync::DomainName
-  #   Condition: HasDomainName
-  #   Properties:
-  #     DomainName: !Ref DomainName
-  #     CertificateArn: !Sub "arn:aws:acm:${AWS::Region}:${AWS::AccountId}:certificate/your-cert-id"
-
-  # DomainAssociation:
-  #   Type: AWS::AppSync::DomainNameApiAssociation
-  #   Condition: HasDomainName
-  #   Properties:
-  #     ApiId: !GetAtt GraphQLApi.ApiId
-  #     DomainName: !Ref DomainName
 
   # Example resolver for health check
   HealthCheckResolver:
@@ -177,17 +159,13 @@ Resources:
       Runtime:
         Name: APPSYNC_JS
         RuntimeVersion: 1.0.0
-      Code: |
+      Code: !Sub |
         export function request(ctx) {
           return {};
         }
         
         export function response(ctx) {
-          return {
-            status: 'healthy',
-            timestamp: new Date().toISOString(),
-            environment: '${Environment}'
-          };
+          return 'OK - ${Environment}';
         }
 
 Outputs:

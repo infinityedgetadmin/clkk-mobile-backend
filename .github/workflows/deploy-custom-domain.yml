@@ -1,0 +1,92 @@
+name: Deploy with Shared Domain
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AWS_REGION: us-east-1
+  STACK_NAME: clkk-mobile-backend
+
+jobs:
+  deploy-with-shared-domain:
+    name: Deploy with Shared Domain
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets[format('{0}_AWS_ACCESS_KEY_ID', github.event.inputs.environment == 'prod' && 'PROD' || github.event.inputs.environment == 'staging' && 'STAGING' || 'AWS')] }}
+          aws-secret-access-key: ${{ secrets[format('{0}_AWS_SECRET_ACCESS_KEY', github.event.inputs.environment == 'prod' && 'PROD' || github.event.inputs.environment == 'staging' && 'STAGING' || 'AWS')] }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check Platform Prerequisites
+        run: |
+          echo "Checking platform parameters..."
+          
+          # Check if required SSM parameters exist
+          aws ssm get-parameter --name "/clkk/platform/domain-name" --query 'Parameter.Value' --output text || \
+            (echo "ERROR: Platform domain parameter not found" && exit 1)
+          
+          aws ssm get-parameter --name "/clkk/platform/hosted-zone-id" --query 'Parameter.Value' --output text || \
+            (echo "ERROR: Platform hosted zone parameter not found" && exit 1)
+
+      - name: Deploy All Stacks
+        run: |
+          echo "Deploying with shared domain for ${{ github.event.inputs.environment }}"
+          
+          # Run the deployment script
+          bash scripts/deploy-with-shared-domain.sh "${{ github.event.inputs.environment }}"
+
+      - name: Display Deployment Info
+        run: |
+          # Get domain from SSM
+          DOMAIN=$(aws ssm get-parameter --name "/clkk/platform/domain-name" --query 'Parameter.Value' --output text)
+          
+          case "${{ github.event.inputs.environment }}" in
+            prod)
+              API_URL="https://mobile-api.${DOMAIN}/graphql"
+              ;;
+            staging)
+              API_URL="https://mobile-api.staging.${DOMAIN}/graphql"
+              ;;
+            dev)
+              API_URL="https://mobile-api.dev.${DOMAIN}/graphql"
+              ;;
+          esac
+          
+          echo "✅ Deployment complete!"
+          echo "Mobile API URL: $API_URL"
+          echo ""
+          echo "Note: DNS propagation may take a few minutes"

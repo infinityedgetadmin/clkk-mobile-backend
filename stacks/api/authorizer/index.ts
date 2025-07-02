@@ -1,15 +1,52 @@
 import { AppSyncAuthorizerHandler, AppSyncAuthorizerResult } from 'aws-lambda';
-import { logger, tracer, metrics, addCorrelationId, logMetric, docClient } from '@clkk/powertools-layer';
+import { Logger } from '@aws-lambda-powertools/logger';
+import { Tracer } from '@aws-lambda-powertools/tracer';
+import { Metrics } from '@aws-lambda-powertools/metrics';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-import { GetCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { createHmac } from 'crypto';
-import { ATTRIBUTES, KEY_BUILDERS } from '@clkk/constants-layer';
+
+// Initialize Powertools
+const logger = new Logger({ serviceName: 'api-authorizer' });
+const tracer = new Tracer({ serviceName: 'api-authorizer' });
+const metrics = new Metrics({ namespace: 'CLKK', serviceName: 'api-authorizer' });
+
+// Initialize DynamoDB client
+const dynamoClient = tracer.captureAWSv3Client(new DynamoDBClient({}));
+const docClient = DynamoDBDocumentClient.from(dynamoClient);
+
+// Helper functions
+const addCorrelationId = (correlationId: string) => {
+  logger.appendKeys({ correlationId });
+  tracer.putAnnotation('correlationId', correlationId);
+};
+
+const logMetric = (name: string, value: number = 1) => {
+  metrics.addMetric(name, 'Count', value);
+};
 
 // Initialize clients
 const secretsClient = tracer.captureAWSv3Client(new SecretsManagerClient({}));
 
 const TABLE_NAME = process.env.TABLE_NAME!;
 const ENVIRONMENT = process.env.ENVIRONMENT!;
+
+// DynamoDB constants
+const ATTRIBUTES = {
+  ID: 'id',
+  EMAIL: 'email',
+  CLERK_ID: 'clerkId',
+  PARTITION_KEY: 'PK',
+  SORT_KEY: 'SK',
+};
+
+const KEY_BUILDERS = {
+  user: (userId: string) => ({
+    [ATTRIBUTES.PARTITION_KEY]: `USER#${userId}`,
+    [ATTRIBUTES.SORT_KEY]: `USER#${userId}`,
+  }),
+};
 
 interface ClerkWebhookPayload {
   data: {

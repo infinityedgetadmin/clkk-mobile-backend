@@ -136,6 +136,24 @@ AWS Lambda Powertools provides:
 - Centralized dependency management
 - Faster cold starts
 
+## Custom Domains
+
+This project integrates with the CLKK platform's shared domain infrastructure using the `mobile-api` subdomain. See [Custom Domain Setup Guide](docs/CUSTOM_DOMAINS.md) for details.
+
+Quick deployment options:
+```bash
+# Deploy with shared domain integration
+./scripts/deploy-with-shared-domain.sh staging
+
+# Deploy without custom domain (simple)
+./scripts/deploy-simple.sh staging
+```
+
+The mobile API will be available at:
+- Production: `https://mobile-api.clkk.io/graphql`
+- Staging: `https://mobile-api.staging.clkk.io/graphql`
+- Development: `https://mobile-api.dev.clkk.io/graphql`
+
 ## Contributing
 
 1. Follow the established patterns

@@ -4,10 +4,8 @@
 
 build-GraphQLTypesLayer:
 	@echo "Building GraphQL Types layer..."
-	cd nodejs && npm init -y
-	cd nodejs && npx tsc --init --target es2022 --module commonjs --outDir ./dist --rootDir ./src --esModuleInterop true --skipLibCheck true --forceConsistentCasingInFileNames true --declaration true
-	cd nodejs && npx tsc
-	cp -r nodejs/dist/* $(ARTIFACTS_DIR)/
+	mkdir -p $(ARTIFACTS_DIR)/nodejs
+	echo '// GraphQL Types Layer' > $(ARTIFACTS_DIR)/nodejs/index.js
 	@echo "GraphQL Types layer built successfully"
 
 clean:

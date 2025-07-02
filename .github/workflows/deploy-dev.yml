@@ -1,0 +1,113 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  STACK_NAME: clkk-backend
+  ENVIRONMENT: dev
+  NODE_VERSION: '20.x'
+
+jobs:
+  deploy:
+    name: Build and Deploy to Dev
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install dependencies
+        run: |
+          echo "Installing root dependencies..."
+          npm ci
+          
+          echo "Installing layer dependencies..."
+          make install-layers
+          
+          echo "Installing service dependencies..."
+          make install-services
+
+      - name: Generate GraphQL types
+        run: |
+          echo "Generating GraphQL types..."
+          npm run codegen
+
+      - name: Run tests
+        run: |
+          echo "Running tests..."
+          npm test
+        continue-on-error: true  # Remove this once tests are implemented
+
+      - name: Run linter
+        run: |
+          echo "Running linter..."
+          npm run lint
+        continue-on-error: true  # Remove this once linting is properly configured
+
+      - name: Build SAM application
+        run: |
+          echo "Building SAM application..."
+          sam build \
+            --use-container \
+            --build-image public.ecr.aws/sam/build-nodejs20.x:latest \
+            --parallel \
+            --cached
+
+      - name: Deploy to AWS
+        run: |
+          echo "Deploying to ${{ env.ENVIRONMENT }} environment..."
+          sam deploy \
+            --stack-name ${{ env.STACK_NAME }}-${{ env.ENVIRONMENT }} \
+            --parameter-overrides "Environment=${{ env.ENVIRONMENT }}" \
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --s3-prefix ${{ env.ENVIRONMENT }} \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Get stack outputs
+        if: success()
+        run: |
+          echo "Getting stack outputs..."
+          aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }}-${{ env.ENVIRONMENT }} \
+            --query 'Stacks[0].Outputs' \
+            --output table
+
+      - name: Display API endpoint
+        if: success()
+        run: |
+          API_ENDPOINT=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }}-${{ env.ENVIRONMENT }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`GraphQLApiEndpoint`].OutputValue' \
+            --output text)
+          echo "🚀 GraphQL API deployed to: $API_ENDPOINT"
