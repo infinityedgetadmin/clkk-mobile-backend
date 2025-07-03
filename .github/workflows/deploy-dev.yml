@@ -70,6 +70,11 @@ jobs:
           npm run lint
         continue-on-error: true  # Remove this once linting is properly configured
 
+      - name: Install esbuild
+        run: |
+          echo "Installing esbuild for SAM build..."
+          npm install -g esbuild
+          
       - name: Build SAM application
         run: |
           echo "Building SAM application..."
