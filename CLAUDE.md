@@ -154,3 +154,7 @@ The project includes GitHub Actions workflows for automated deployment:
 
 ### Additional Guidance
 - **Always specify AWS profile while doing API calls.**
+
+## Commit Guidelines
+
+- **Do not add attribution on commits**

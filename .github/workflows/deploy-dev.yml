@@ -47,9 +47,6 @@ jobs:
           echo "Installing root dependencies..."
           npm install
           
-          echo "Installing esbuild globally for SAM build..."
-          npm install -g esbuild@latest
-          
           echo "Installing layer dependencies..."
           make install-layers
           
@@ -78,7 +75,6 @@ jobs:
           echo "Building SAM application..."
           sam build \
             --use-container \
-            --build-image public.ecr.aws/sam/build-nodejs20.x:latest \
             --parallel \
             --cached
 
