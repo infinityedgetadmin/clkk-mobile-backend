@@ -6,7 +6,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  STACK_NAME: clkk-backend
+  STACK_NAME: clkk-mobile-backend
   ENVIRONMENT: dev
   NODE_VERSION: '20.x'
 
