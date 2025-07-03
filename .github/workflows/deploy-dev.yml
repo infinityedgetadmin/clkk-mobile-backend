@@ -45,7 +45,7 @@ jobs:
       - name: Install dependencies
         run: |
           echo "Installing root dependencies..."
-          npm ci
+          npm install
           
           echo "Installing esbuild globally for SAM build..."
           npm install -g esbuild@latest
