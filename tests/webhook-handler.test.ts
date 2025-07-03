@@ -24,7 +24,8 @@ describe('Webhook Handler Unit Tests', () => {
     expect(event.httpMethod).toBe('POST');
     expect(event.path).toBe('/webhooks/clerk/users');
     expect(event.body).toBeDefined();
-    expect(JSON.parse(event.body!).type).toBe('user.created');
+    const body = event.body || '{}';
+    expect(JSON.parse(body).type).toBe('user.created');
   });
 
   it('should create a valid Lambda context', () => {
