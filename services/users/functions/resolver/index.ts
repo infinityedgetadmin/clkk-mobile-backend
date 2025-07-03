@@ -1,6 +1,9 @@
-import { AppSyncResolverEvent, AppSyncIdentity } from 'aws-lambda';
-import { createHandler } from '../../../../shared/lambda-base/src';
-import { logger, metrics } from 'powertools';
+import { AppSyncResolverEvent, AppSyncIdentity, Context } from 'aws-lambda';
+import middy from '@middy/core';
+import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
+import { captureLambdaHandler } from '@aws-lambda-powertools/tracer/middleware';
+import { logMetrics } from '@aws-lambda-powertools/metrics/middleware';
+import { logger, metrics, tracer } from 'powertools';
 import { User } from 'entities';
 import { UserRepository } from 'repositories';
 import { 
@@ -310,4 +313,8 @@ async function handleUserDeleted(webhookData: any, userRepository: UserRepositor
   logger.info('User marked as deleted', { userId: user.id, clerkId });
 }
 
-export const handler = createHandler(resolveField);
+// Create the handler with middleware
+export const handler = middy(resolveField)
+  .use(injectLambdaContext(logger))
+  .use(captureLambdaHandler(tracer))
+  .use(logMetrics(metrics));
