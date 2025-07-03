@@ -96,40 +96,12 @@ Resources:
         - CloudWatchLambdaInsightsExecutionRolePolicy
         - AWSXRayDaemonWriteAccess
       Events:
-        WebhookEndpoint:
+        WebhookEvent:
           Type: Api
           Properties:
             Path: /webhooks/clerk/users
             Method: POST
-            RestApiId: !Ref UserWebhookApi
 
-  # REST API for webhooks (separate from AppSync)
-  UserWebhookApi:
-    Type: AWS::Serverless::Api
-    Properties:
-      Name: !Sub ${StackName}-${Environment}-user-webhooks
-      StageName: !Ref Environment
-      Description: REST API for Clerk user webhooks
-      TracingEnabled: true
-      Cors:
-        AllowOrigin: "'*'"
-        AllowMethods: "'POST'"
-        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,svix-id,svix-timestamp,svix-signature'"
-      MethodSettings:
-        - ResourcePath: /*
-          HttpMethod: '*'
-          LoggingLevel: INFO
-          MetricsEnabled: true
-          DataTraceEnabled: true
-
-  # Permission for API Gateway to invoke webhook handler
-  WebhookHandlerPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref WebhookHandlerFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserWebhookApi}/*/*
 
   # Lambda function for GraphQL resolvers
   UserResolverFunction:
@@ -370,7 +342,7 @@ Resources:
 Outputs:
   WebhookEndpoint:
     Description: Clerk webhook endpoint URL
-    Value: !Sub https://${UserWebhookApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/webhooks/clerk/users
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhooks/clerk/users
     Export:
       Name: !Sub ${StackName}-${Environment}-webhook-endpoint
 

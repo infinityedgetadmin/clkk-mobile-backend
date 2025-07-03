@@ -61,8 +61,7 @@ jobs:
       - name: Run tests
         run: |
           echo "Running tests..."
-          npm test
-        continue-on-error: true  # Remove this once tests are implemented
+          cd tests && npm install && npm test
 
       - name: Run linter
         run: |
