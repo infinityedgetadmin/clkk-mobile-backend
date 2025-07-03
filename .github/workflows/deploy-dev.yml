@@ -47,6 +47,9 @@ jobs:
           echo "Installing root dependencies..."
           npm ci
           
+          echo "Installing esbuild globally for SAM build..."
+          npm install -g esbuild@latest
+          
           echo "Installing layer dependencies..."
           make install-layers
           
