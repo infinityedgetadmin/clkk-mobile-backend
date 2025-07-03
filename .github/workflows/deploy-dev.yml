@@ -79,7 +79,6 @@ jobs:
         run: |
           echo "Building SAM application..."
           sam build \
-            --use-container \
             --parallel \
             --cached
 
