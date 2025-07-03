@@ -260,3 +260,9 @@ Outputs:
     Value: !GetAtt LambdaExecutionRole.Arn
     Export:
       Name: !Sub "${StackName}-LambdaExecutionRoleArn"
+  
+  ClerkWebhookSecretArn:
+    Description: ARN of the Clerk webhook secret
+    Value: !Ref ClerkWebhookSecret
+    Export:
+      Name: !Sub "${StackName}-ClerkWebhookSecretArn"

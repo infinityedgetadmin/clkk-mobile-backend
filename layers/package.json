@@ -1,0 +1,25 @@
+{
+  "name": "clkk-layers",
+  "version": "1.0.0",
+  "description": "Combined layers for CLKK Backend V3",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@aws-lambda-powertools/logger": "^2.23.0",
+    "@aws-lambda-powertools/metrics": "^2.23.0",
+    "@aws-lambda-powertools/tracer": "^2.23.0",
+    "@aws-sdk/client-dynamodb": "^3.450.0",
+    "@aws-sdk/lib-dynamodb": "^3.450.0",
+    "@aws-sdk/client-secrets-manager": "^3.450.0",
+    "@middy/core": "^5.0.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.130",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  }
+}

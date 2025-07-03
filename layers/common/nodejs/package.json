@@ -1,18 +1,12 @@
 {
-  "name": "nodejs",
+  "name": "@clkk/common-layer",
   "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "description": "Common utilities for CLKK Backend",
+  "main": "src/index.js",
+  "private": true,
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.840.0",
-    "@aws-sdk/lib-dynamodb": "^3.840.0",
-    "uuid": "^11.1.0",
-    "zod": "^3.25.67"
+    "@aws-sdk/client-dynamodb": "^3.614.0",
+    "@aws-sdk/lib-dynamodb": "^3.614.0",
+    "ulid": "^2.3.0"
   }
 }

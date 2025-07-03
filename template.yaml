@@ -128,21 +128,21 @@ Resources:
         GraphQLTypesLayerArn: !Ref GraphQLTypesLayer
     DependsOn: SharedStack
 
-  # UsersStack:
-  #   Type: AWS::Serverless::Application
-  #   Properties:
-  #     Location: stacks/users/template.yaml
-  #     Parameters:
-  #       StackName: !Ref AWS::StackName
-  #       Environment: !Ref Environment
-  #       ApplicationTableName: !GetAtt DatabaseStack.Outputs.ApplicationTableName
-  #       ApplicationTableArn: !GetAtt DatabaseStack.Outputs.ApplicationTableArn
-  #       GraphQLApiId: !GetAtt ApiStack.Outputs.GraphQLApiId
-  #       GraphQLApiArn: !GetAtt ApiStack.Outputs.GraphQLApiArn
-  #       PowertoolsLayerArn: !Ref PowertoolsLayer
-  #       CommonLayerArn: !Ref CommonLayer
-  #       GraphQLTypesLayerArn: !Ref GraphQLTypesLayer
-  #   DependsOn: ApiStack
+  UsersStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: stacks/users/template.yaml
+      Parameters:
+        StackName: !Ref AWS::StackName
+        Environment: !Ref Environment
+        TableName: !GetAtt DatabaseStack.Outputs.ApplicationTableName
+        LayerVersionArn: !Ref CommonLayer
+        PowertoolsLayerArn: !Ref PowertoolsLayer
+        LogRetentionInDays: !If [IsProd, 30, 7]
+        ApiId: !GetAtt ApiStack.Outputs.GraphQLApiId
+        ApiEndpoint: !GetAtt ApiStack.Outputs.GraphQLApiEndpoint
+        ClerkWebhookSecretArn: !GetAtt SharedStack.Outputs.ClerkWebhookSecretArn
+    DependsOn: ApiStack
 
   # CloudWatch Dashboard
   MonitoringDashboard:

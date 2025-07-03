@@ -5,7 +5,9 @@
 build-CommonLayer:
 	@echo "Building Common layer..."
 	cd nodejs && npm install --omit=dev
-	cp -r nodejs/node_modules $(ARTIFACTS_DIR)/
+	mkdir -p $(ARTIFACTS_DIR)/nodejs
+	cp -r nodejs/node_modules $(ARTIFACTS_DIR)/nodejs/
+	cp -r nodejs/src/* $(ARTIFACTS_DIR)/nodejs/
 	@echo "Common layer built successfully"
 
 clean:
