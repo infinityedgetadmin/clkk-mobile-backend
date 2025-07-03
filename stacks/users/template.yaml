@@ -122,6 +122,15 @@ Resources:
           MetricsEnabled: true
           DataTraceEnabled: true
 
+  # Permission for API Gateway to invoke webhook handler
+  WebhookHandlerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WebhookHandlerFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserWebhookApi}/*/*
+
   # Lambda function for GraphQL resolvers
   UserResolverFunction:
     Type: AWS::Serverless::Function
