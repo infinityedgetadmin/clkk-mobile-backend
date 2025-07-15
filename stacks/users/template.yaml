@@ -342,12 +342,6 @@ Resources:
         $util.toJson($context.result)
 
 Outputs:
-  WebhookEndpoint:
-    Description: Clerk webhook endpoint URL
-    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhooks/clerk/users
-    Export:
-      Name: !Sub ${StackName}-${Environment}-webhook-endpoint
-
   UserResolverFunctionArn:
     Description: ARN of the user resolver Lambda function
     Value: !GetAtt UserResolverFunction.Arn
