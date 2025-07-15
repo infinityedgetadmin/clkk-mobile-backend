@@ -1,4 +1,3 @@
-import { describe, it, expect } from '@jest/globals';
 import { createApiGatewayEvent, createMockContext } from './test-utils';
 
 describe('Webhook Handler Unit Tests', () => {

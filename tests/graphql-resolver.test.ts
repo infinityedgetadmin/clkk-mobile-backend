@@ -1,4 +1,3 @@
-import { describe, it, expect } from '@jest/globals';
 
 describe('GraphQL Resolver Unit Tests', () => {
   it('should validate basic test setup', () => {

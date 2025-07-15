@@ -64,7 +64,7 @@ export function createApiGatewayEvent({
       stage: 'test',
     },
     resource: path
-  };
+  } as APIGatewayProxyEvent;
 }
 
 /**
@@ -84,7 +84,7 @@ export function createMockContext(): Context {
     done: () => {},
     fail: () => {},
     succeed: () => {},
-  };
+  } as Context;
 }
 
 /**
@@ -93,3 +93,9 @@ export function createMockContext(): Context {
 export function generateTestId(): string {
   return `test-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 }
+
+export {
+  createApiGatewayEvent,
+  createMockContext,
+  generateTestId
+};
