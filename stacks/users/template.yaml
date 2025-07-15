@@ -54,6 +54,17 @@ Globals:
     Tracing: Active
 
 Resources:
+  # API Gateway for webhooks
+  WebhookApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub ${StackName}-${Environment}-webhook-api
+      StageName: Prod
+      Cors:
+        AllowMethods: "'POST'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
   # Webhook Handler Function
   WebhookHandlerFunction:
     Type: AWS::Serverless::Function
@@ -99,6 +110,7 @@ Resources:
         WebhookEvent:
           Type: Api
           Properties:
+            RestApiId: !Ref WebhookApi
             Path: /webhooks/clerk/users
             Method: POST
 
@@ -342,7 +354,7 @@ Resources:
 Outputs:
   WebhookEndpoint:
     Description: Clerk webhook endpoint URL
-    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhooks/clerk/users
+    Value: !Sub https://${WebhookApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhooks/clerk/users
     Export:
       Name: !Sub ${StackName}-${Environment}-webhook-endpoint
 
