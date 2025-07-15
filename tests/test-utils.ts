@@ -93,9 +93,3 @@ export function createMockContext(): Context {
 export function generateTestId(): string {
   return `test-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 }
-
-export {
-  createApiGatewayEvent,
-  createMockContext,
-  generateTestId
-};
