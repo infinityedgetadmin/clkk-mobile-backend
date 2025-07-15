@@ -53,12 +53,12 @@ install-services: ## Install service dependencies
 
 install-layers: ## Install layer dependencies
 	@echo "${GREEN}Installing layer dependencies...${NC}"
-	cd layers/common/nodejs && npm init -y && npm install \
-		@aws-sdk/client-dynamodb \
-		@aws-sdk/lib-dynamodb \
-		uuid \
-		zod
-	cd layers/graphql-types/nodejs && npm init -y
+	@echo "Installing common layer dependencies..."
+	cd layers/common/nodejs && npm install
+	@echo "Installing powertools layer dependencies..."
+	cd layers/powertools/nodejs && npm install
+	@echo "Installing graphql-types layer dependencies..."
+	cd layers/graphql-types/nodejs && npm install
 
 ##@ Code Generation
 

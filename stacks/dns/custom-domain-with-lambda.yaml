@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Custom Domain Stack for CLKK Mobile Backend - Using Cross-Account DNS Lambda
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+  
+  RootDomain:
+    Type: String
+    Description: Root domain name (e.g., clkk-api.io)
+  
+  HostedZoneId:
+    Type: String
+    Description: Route53 Hosted Zone ID (in production account)
+  
+  CertificateArn:
+    Type: String
+    Description: SSL Certificate ARN for mobile subdomain (must be in same account)
+    
+  GraphQLApiId:
+    Type: String
+    Description: AppSync GraphQL API ID
+    
+  CrossAccountDnsFunctionArn:
+    Type: String
+    Description: ARN of the cross-account DNS Lambda function
+    Default: ""
+
+Conditions:
+  IsProd: !Equals [!Ref Environment, prod]
+  IsStaging: !Equals [!Ref Environment, staging]
+  HasDnsFunction: !Not [!Equals [!Ref CrossAccountDnsFunctionArn, ""]]
+
+Resources:
+  # AppSync Custom Domain
+  AppSyncCustomDomain:
+    Type: AWS::AppSync::DomainName
+    Properties:
+      DomainName: !If
+        - IsProd
+        - !Sub "mobile.${RootDomain}"
+        - !If
+          - IsStaging
+          - !Sub "mobile.staging.${RootDomain}"
+          - !Sub "mobile.dev.${RootDomain}"
+      CertificateArn: !Ref CertificateArn
+      Description: !Sub "Mobile GraphQL API custom domain for ${Environment}"
+
+  # Associate domain with API
+  AppSyncDomainAssociation:
+    Type: AWS::AppSync::DomainNameApiAssociation
+    Properties:
+      ApiId: !Ref GraphQLApiId
+      DomainName: !Ref AppSyncCustomDomain
+
+  # DNS Record using Cross-Account Lambda (if provided)
+  DnsRecordLambda:
+    Type: Custom::DNSRecord
+    Condition: HasDnsFunction
+    Properties:
+      ServiceToken: !Ref CrossAccountDnsFunctionArn
+      HostedZoneId: !Ref HostedZoneId
+      RecordName: !GetAtt AppSyncCustomDomain.DomainName
+      RecordType: CNAME
+      TTL: 300
+      ResourceRecords:
+        - Value: !GetAtt AppSyncCustomDomain.AppSyncDomainName
+
+Outputs:
+  CustomDomainName:
+    Description: Custom domain name
+    Value: !GetAtt AppSyncCustomDomain.DomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-domain-name"
+  
+  GraphQLEndpoint:
+    Description: GraphQL API custom endpoint
+    Value: !Sub "https://${AppSyncCustomDomain.DomainName}/graphql"
+    Export:
+      Name: !Sub "${AWS::StackName}-graphql-endpoint"
+  
+  AppSyncDomainName:
+    Description: AppSync internal domain name (CNAME target)
+    Value: !GetAtt AppSyncCustomDomain.AppSyncDomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-appsync-domain"
+      
+  ManualDnsInstructions:
+    Description: Manual DNS configuration instructions
+    Value: !If
+      - HasDnsFunction
+      - "DNS record created automatically via Lambda"
+      - !Sub |
+        Please create the following DNS record in Route53:
+        - Name: ${AppSyncCustomDomain.DomainName}
+        - Type: CNAME
+        - Value: ${AppSyncCustomDomain.AppSyncDomainName}
+        - TTL: 300

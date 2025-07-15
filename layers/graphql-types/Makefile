@@ -4,8 +4,9 @@
 
 build-GraphQLTypesLayer:
 	@echo "Building GraphQL Types layer..."
+	cd nodejs && npm install --omit=dev
 	mkdir -p $(ARTIFACTS_DIR)/nodejs
-	echo '// GraphQL Types Layer' > $(ARTIFACTS_DIR)/nodejs/index.js
+	cp -r nodejs/src/* $(ARTIFACTS_DIR)/nodejs/
 	@echo "GraphQL Types layer built successfully"
 
 clean:

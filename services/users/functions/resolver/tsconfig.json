@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "strict": true,
+    "baseUrl": "../../../../layers",
+    "paths": {
+      "constants": ["./constants/nodejs/src/index"],
+      "common": ["./common/nodejs/src/index"],
+      "entities": ["./entities/nodejs/src/index"],
+      "repositories": ["./repositories/nodejs/src/index"],
+      "powertools": ["./powertools/nodejs/src/index"],
+      "graphql-types": ["./graphql-types/nodejs/src/index"]
+    },
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "exclude": ["node_modules", "**/*.test.ts"]
+}

@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Cross-Account DNS Management Role (Deploy in PROD account)
+
+Parameters:
+  DevAccountId:
+    Type: String
+    Default: "734379247206"
+    Description: AWS Account ID of the development account
+
+  StagingAccountId:
+    Type: String
+    Default: "797098542572"
+    Description: AWS Account ID of the staging account
+
+  HostedZoneId:
+    Type: String
+    Default: "Z07794393NL0TD72QHLLD"
+    Description: Route53 Hosted Zone ID
+
+Resources:
+  # Generic role that can be assumed by CloudFormation custom resources
+  CrossAccountDNSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: clkk-cross-account-dns-role
+      Description: Allows dev/staging accounts to manage DNS records in prod hosted zone
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: 
+                - !Sub "arn:aws:iam::${DevAccountId}:root"
+                - !Sub "arn:aws:iam::${StagingAccountId}:root"
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                "sts:ExternalId": "clkk-dns-management"
+      Policies:
+        - PolicyName: Route53DNSManagementPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - route53:ChangeResourceRecordSets
+                  - route53:GetChange
+                  - route53:ListResourceRecordSets
+                Resource:
+                  - !Sub "arn:aws:route53:::hostedzone/${HostedZoneId}"
+                  - "arn:aws:route53:::change/*"
+              - Effect: Allow
+                Action:
+                  - route53:GetHostedZone
+                Resource: !Sub "arn:aws:route53:::hostedzone/${HostedZoneId}"
+      Tags:
+        - Key: Purpose
+          Value: Cross-account DNS management
+        - Key: ManagedBy
+          Value: CLKK Platform
+
+Outputs:
+  CrossAccountRoleArn:
+    Description: ARN of the cross-account DNS management role
+    Value: !GetAtt CrossAccountDNSRole.Arn
+    Export:
+      Name: clkk-cross-account-dns-role-arn

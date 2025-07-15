@@ -7,7 +7,7 @@
     "codegen": "graphql-codegen --config graphql/codegen.yml",
     "codegen:watch": "graphql-codegen --config graphql/codegen.yml --watch",
     "build": "make build",
-    "test": "jest",
+    "test": "cd tests && npm test",
     "test:unit": "jest --testPathPattern=unit",
     "test:integration": "jest --testPathPattern=integration",
     "test:watch": "jest --watch",
@@ -30,6 +30,7 @@
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
     "aws-sdk-client-mock": "^3.0.1",
+    "esbuild": "^0.23.0",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
@@ -54,26 +55,5 @@
     "@middy/core": "^5.0.5",
     "uuid": "^9.0.1",
     "zod": "^3.22.4"
-  },
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "node",
-    "roots": [
-      "<rootDir>/services",
-      "<rootDir>/layers"
-    ],
-    "testMatch": [
-      "**/__tests__/**/*.ts",
-      "**/?(*.)+(spec|test).ts"
-    ],
-    "transform": {
-      "^.+\\.ts$": "ts-jest"
-    },
-    "collectCoverageFrom": [
-      "**/*.ts",
-      "!**/*.d.ts",
-      "!**/node_modules/**",
-      "!**/__tests__/**"
-    ]
   }
 }

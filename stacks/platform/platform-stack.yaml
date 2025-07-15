@@ -1,0 +1,342 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: "CLKK Platform Infrastructure - Shared resources across all environments"
+
+Parameters:
+  Environment:
+    Type: String
+    Default: "prod"
+    Description: "Deployment environment - platform stack should only be deployed in prod"
+    AllowedValues:
+      - prod
+  
+  DomainName:
+    Type: String
+    Default: "clkk-api.io"
+    Description: "Root domain name for CLKK platform"
+
+Conditions:
+  IsProduction: !Equals [!Ref Environment, "prod"]
+
+Resources:
+  # ================================================
+  # ROUTE 53 HOSTED ZONE
+  # ================================================
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Condition: IsProduction
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig:
+        Comment: !Sub "CLKK platform hosted zone for ${DomainName}"
+      HostedZoneTags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Stack
+          Value: platform
+
+  # ================================================
+  # SSL CERTIFICATES
+  # ================================================
+  
+  # Production Certificate (covers api.clkk-api.io)
+  ProductionCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: IsProduction
+    Properties:
+      DomainName: !Sub "api.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub "api.${DomainName}"
+          HostedZoneId: !Ref HostedZone
+      Tags:
+        - Key: Environment
+          Value: prod
+        - Key: Stack
+          Value: platform
+
+  # Staging Certificate (covers api.staging.clkk-api.io)
+  StagingCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: IsProduction
+    Properties:
+      DomainName: !Sub "api.staging.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub "api.staging.${DomainName}"
+          HostedZoneId: !Ref HostedZone
+      Tags:
+        - Key: Environment
+          Value: staging
+        - Key: Stack
+          Value: platform
+
+  # Development Certificate (covers api.dev.clkk-api.io)
+  DevelopmentCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: IsProduction
+    Properties:
+      DomainName: !Sub "api.dev.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub "api.dev.${DomainName}"
+          HostedZoneId: !Ref HostedZone
+      Tags:
+        - Key: Environment
+          Value: dev
+        - Key: Stack
+          Value: platform
+
+  # ================================================
+  # MOBILE SSL CERTIFICATES
+  # ================================================
+  
+  # Production Mobile Certificate (covers mobile.clkk-api.com)
+  ProductionMobileCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: IsProduction
+    Properties:
+      DomainName: !Sub "mobile.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub "mobile.${DomainName}"
+          HostedZoneId: !Ref HostedZone
+      Tags:
+        - Key: Environment
+          Value: prod
+        - Key: Stack
+          Value: platform
+        - Key: Service
+          Value: mobile
+
+  # Staging Mobile Certificate (covers mobile.staging.clkk-api.com)
+  StagingMobileCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: IsProduction
+    Properties:
+      DomainName: !Sub "mobile.staging.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub "mobile.staging.${DomainName}"
+          HostedZoneId: !Ref HostedZone
+      Tags:
+        - Key: Environment
+          Value: staging
+        - Key: Stack
+          Value: platform
+        - Key: Service
+          Value: mobile
+
+  # Development Mobile Certificate (covers mobile.dev.clkk-api.com)
+  DevelopmentMobileCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: IsProduction
+    Properties:
+      DomainName: !Sub "mobile.dev.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub "mobile.dev.${DomainName}"
+          HostedZoneId: !Ref HostedZone
+      Tags:
+        - Key: Environment
+          Value: dev
+        - Key: Stack
+          Value: platform
+        - Key: Service
+          Value: mobile
+
+  # ================================================
+  # SSM PARAMETERS FOR CROSS-STACK REFERENCE
+  # ================================================
+  
+  HostedZoneIdParameter:
+    Type: AWS::SSM::Parameter
+    Condition: IsProduction
+    Properties:
+      Name: /clkk/platform/hosted-zone-id
+      Type: String
+      Value: !Ref HostedZone
+      Description: "Route 53 Hosted Zone ID for CLKK platform"
+      Tags:
+        Environment: !Ref Environment
+        Stack: platform
+
+  DomainNameParameter:
+    Type: AWS::SSM::Parameter
+    Condition: IsProduction
+    Properties:
+      Name: /clkk/platform/domain-name
+      Type: String
+      Value: !Ref DomainName
+      Description: "Root domain name for CLKK platform"
+      Tags:
+        Environment: !Ref Environment
+        Stack: platform
+
+  ProductionCertificateArnParameter:
+    Type: AWS::SSM::Parameter
+    Condition: IsProduction
+    Properties:
+      Name: /clkk/platform/certificates/prod
+      Type: String
+      Value: !Ref ProductionCertificate
+      Description: "Production certificate ARN"
+      Tags:
+        Environment: prod
+        Stack: platform
+
+  StagingCertificateArnParameter:
+    Type: AWS::SSM::Parameter
+    Condition: IsProduction
+    Properties:
+      Name: /clkk/platform/certificates/staging
+      Type: String
+      Value: !Ref StagingCertificate
+      Description: "Staging certificate ARN"
+      Tags:
+        Environment: staging
+        Stack: platform
+
+  DevelopmentCertificateArnParameter:
+    Type: AWS::SSM::Parameter
+    Condition: IsProduction
+    Properties:
+      Name: /clkk/platform/certificates/dev
+      Type: String
+      Value: !Ref DevelopmentCertificate
+      Description: "Development certificate ARN"
+      Tags:
+        Environment: dev
+        Stack: platform
+
+  # Mobile Certificate SSM Parameters
+  ProductionMobileCertificateArnParameter:
+    Type: AWS::SSM::Parameter
+    Condition: IsProduction
+    Properties:
+      Name: /clkk/platform/certificates/mobile/prod
+      Type: String
+      Value: !Ref ProductionMobileCertificate
+      Description: "Production mobile certificate ARN"
+      Tags:
+        Environment: prod
+        Stack: platform
+        Service: mobile
+
+  StagingMobileCertificateArnParameter:
+    Type: AWS::SSM::Parameter
+    Condition: IsProduction
+    Properties:
+      Name: /clkk/platform/certificates/mobile/staging
+      Type: String
+      Value: !Ref StagingMobileCertificate
+      Description: "Staging mobile certificate ARN"
+      Tags:
+        Environment: staging
+        Stack: platform
+        Service: mobile
+
+  DevelopmentMobileCertificateArnParameter:
+    Type: AWS::SSM::Parameter
+    Condition: IsProduction
+    Properties:
+      Name: /clkk/platform/certificates/mobile/dev
+      Type: String
+      Value: !Ref DevelopmentMobileCertificate
+      Description: "Development mobile certificate ARN"
+      Tags:
+        Environment: dev
+        Stack: platform
+        Service: mobile
+
+  # ================================================
+  # HEALTH CHECK RECORD
+  # ================================================
+  HealthCheckRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: IsProduction
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Sub "health.${DomainName}"
+      Type: A
+      TTL: 300
+      ResourceRecords:
+        - "127.0.0.1"
+
+Outputs:
+  HostedZoneId:
+    Description: "Route 53 Hosted Zone ID"
+    Value: !If [IsProduction, !Ref HostedZone, "N/A - Platform stack only deployed in production"]
+    Export:
+      Name: !Sub "${AWS::StackName}-hosted-zone-id"
+
+  HostedZoneNameServers:
+    Description: "Route 53 Name Servers (Configure these with your domain registrar)"
+    Value: !If 
+      - IsProduction
+      - !Join [", ", !GetAtt HostedZone.NameServers]
+      - "N/A - Platform stack only deployed in production"
+
+  DomainName:
+    Description: "Root domain name"
+    Value: !Ref DomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-domain-name"
+
+  ProductionCertificateArn:
+    Description: "Production Certificate ARN"
+    Value: !If [IsProduction, !Ref ProductionCertificate, "N/A"]
+    Export:
+      Name: !Sub "${AWS::StackName}-prod-cert-arn"
+
+  StagingCertificateArn:
+    Description: "Staging Certificate ARN"
+    Value: !If [IsProduction, !Ref StagingCertificate, "N/A"]
+    Export:
+      Name: !Sub "${AWS::StackName}-staging-cert-arn"
+
+  DevelopmentCertificateArn:
+    Description: "Development Certificate ARN"
+    Value: !If [IsProduction, !Ref DevelopmentCertificate, "N/A"]
+    Export:
+      Name: !Sub "${AWS::StackName}-dev-cert-arn"
+
+  # Mobile Certificate Outputs
+  ProductionMobileCertificateArn:
+    Description: "Production Mobile Certificate ARN"
+    Value: !If [IsProduction, !Ref ProductionMobileCertificate, "N/A"]
+    Export:
+      Name: !Sub "${AWS::StackName}-prod-mobile-cert-arn"
+
+  StagingMobileCertificateArn:
+    Description: "Staging Mobile Certificate ARN"
+    Value: !If [IsProduction, !Ref StagingMobileCertificate, "N/A"]
+    Export:
+      Name: !Sub "${AWS::StackName}-staging-mobile-cert-arn"
+
+  DevelopmentMobileCertificateArn:
+    Description: "Development Mobile Certificate ARN"
+    Value: !If [IsProduction, !Ref DevelopmentMobileCertificate, "N/A"]
+    Export:
+      Name: !Sub "${AWS::StackName}-dev-mobile-cert-arn"
+
+  ApiEndpoints:
+    Description: "API endpoint patterns for all environments"
+    Value: !Sub |
+      Production: https://api.${DomainName}
+        - Admin API: https://api.${DomainName}/admin
+        - User API: https://api.${DomainName}/api
+        - Webhooks: https://api.${DomainName}/webhooks
+        - Mobile GraphQL: https://mobile.${DomainName}/graphql
+      
+      Staging: https://api.staging.${DomainName}
+        - Admin API: https://api.staging.${DomainName}/admin
+        - User API: https://api.staging.${DomainName}/api
+        - Webhooks: https://api.staging.${DomainName}/webhooks
+        - Mobile GraphQL: https://mobile.staging.${DomainName}/graphql
+      
+      Development: https://api.dev.${DomainName}
+        - Admin API: https://api.dev.${DomainName}/admin
+        - User API: https://api.dev.${DomainName}/api
+        - Webhooks: https://api.dev.${DomainName}/webhooks
+        - Mobile GraphQL: https://mobile.dev.${DomainName}/graphql

@@ -2,14 +2,11 @@ name: Deploy to Development
 
 on:
   push:
-    branches:
-      - main
-      - develop
   workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
-  STACK_NAME: clkk-backend
+  STACK_NAME: clkk-mobile-backend
   ENVIRONMENT: dev
   NODE_VERSION: '20.x'
 
@@ -48,7 +45,7 @@ jobs:
       - name: Install dependencies
         run: |
           echo "Installing root dependencies..."
-          npm ci
+          npm install
           
           echo "Installing layer dependencies..."
           make install-layers
@@ -64,8 +61,7 @@ jobs:
       - name: Run tests
         run: |
           echo "Running tests..."
-          npm test
-        continue-on-error: true  # Remove this once tests are implemented
+          cd tests && npm install && npm test
 
       - name: Run linter
         run: |
@@ -73,12 +69,15 @@ jobs:
           npm run lint
         continue-on-error: true  # Remove this once linting is properly configured
 
+      - name: Install esbuild
+        run: |
+          echo "Installing esbuild for SAM build..."
+          npm install -g esbuild
+          
       - name: Build SAM application
         run: |
           echo "Building SAM application..."
           sam build \
-            --use-container \
-            --build-image public.ecr.aws/sam/build-nodejs20.x:latest \
             --parallel \
             --cached
 
@@ -86,13 +85,11 @@ jobs:
         run: |
           echo "Deploying to ${{ env.ENVIRONMENT }} environment..."
           sam deploy \
-            --stack-name ${{ env.STACK_NAME }}-${{ env.ENVIRONMENT }} \
-            --parameter-overrides "Environment=${{ env.ENVIRONMENT }}" \
-            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --config-env ${{ env.ENVIRONMENT }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --s3-prefix ${{ env.ENVIRONMENT }} \
-            --region ${{ env.AWS_REGION }}
+            --resolve-s3 \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
 
       - name: Get stack outputs
         if: success()

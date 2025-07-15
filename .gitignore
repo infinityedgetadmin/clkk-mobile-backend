@@ -66,5 +66,9 @@ __pycache__/
 .venv/
 
 
+# Repomix output files
+*-output.xml
+repomix-output.xml
+
 ###
 Examples

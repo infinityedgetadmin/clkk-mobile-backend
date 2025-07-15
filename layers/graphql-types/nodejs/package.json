@@ -1,12 +1,8 @@
 {
-  "name": "nodejs",
+  "name": "@clkk/graphql-types-layer",
   "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": ""
+  "description": "Generated GraphQL types for CLKK Backend",
+  "main": "src/index.js",
+  "private": true,
+  "dependencies": {}
 }

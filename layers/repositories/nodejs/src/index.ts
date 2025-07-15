@@ -5,6 +5,7 @@
 
 export { BaseRepository } from './base-repository';
 export { UserRepository } from './user.repository';
+export { UserRepository as UserRepo } from './user-repository';
 
 // Future repositories to be added:
 // export { TransactionRepository } from './transaction.repository';
