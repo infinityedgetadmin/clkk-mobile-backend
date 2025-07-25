@@ -128,6 +128,8 @@ Resources:
         GraphQLTypesLayerArn: !Ref GraphQLTypesLayer
     DependsOn: SharedStack
 
+  # Webhook REST API is now implicit in the users stack Lambda function
+
   UsersStack:
     Type: AWS::Serverless::Application
     Properties:
@@ -143,6 +145,7 @@ Resources:
         ApiEndpoint: !GetAtt ApiStack.Outputs.GraphQLApiEndpoint
         ClerkWebhookSecretArn: !GetAtt SharedStack.Outputs.ClerkWebhookSecretArn
     DependsOn: ApiStack
+
 
   # CloudWatch Dashboard
   MonitoringDashboard:
@@ -284,6 +287,13 @@ Outputs:
     Value: !GetAtt DatabaseStack.Outputs.ApplicationTableName
     Export:
       Name: !Sub "${AWS::StackName}-ApplicationTableName"
+
+  UserWebhookEndpoint:
+    Description: User webhook endpoint URL
+    Value: !GetAtt UsersStack.Outputs.UserWebhookEndpoint
+    Export:
+      Name: !Sub "${AWS::StackName}-UserWebhookEndpoint"
+
 
   DashboardURL:
     Description: CloudWatch Dashboard URL

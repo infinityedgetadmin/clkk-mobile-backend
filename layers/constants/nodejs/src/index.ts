@@ -39,6 +39,7 @@ export const ATTRIBUTES = {
   DATE_OF_BIRTH: 'dateOfBirth',
   ADDRESS: 'address',
   METADATA: 'metadata',
+  DOMAIN: 'Domain',
   
   // Transaction Attributes
   USER_ID: 'userId',

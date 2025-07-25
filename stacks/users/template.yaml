@@ -54,6 +54,19 @@ Globals:
     Tracing: Active
 
 Resources:
+  # Webhook REST API
+  WebhookApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "${StackName}-${Environment}-webhook-api"
+      Description: "CLKK Webhook API for user service"
+      StageName: !Ref Environment
+      TracingEnabled: true
+      Cors:
+        AllowMethods: "'POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,svix-id,svix-timestamp,svix-signature'"
+        AllowOrigin: "'*'"
+        MaxAge: "'600'"
   # Webhook Handler Function
   WebhookHandlerFunction:
     Type: AWS::Serverless::Function
@@ -102,6 +115,7 @@ Resources:
       WebhookEvent:
         Type: Api
         Properties:
+          RestApiId: !Ref WebhookApi
           Path: /webhooks/clerk/users
           Method: POST
 
@@ -347,3 +361,15 @@ Outputs:
     Value: !GetAtt UserResolverFunction.Arn
     Export:
       Name: !Sub ${StackName}-${Environment}-user-resolver-arn
+  
+  UserWebhookHandlerArn:
+    Description: ARN of the user webhook handler Lambda function
+    Value: !GetAtt WebhookHandlerFunction.Arn
+    Export:
+      Name: !Sub ${StackName}-${Environment}-user-webhook-handler-arn
+  
+  UserWebhookEndpoint:
+    Description: User webhook endpoint URL
+    Value: !Sub "https://${WebhookApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/webhooks/clerk/users"
+    Export:
+      Name: !Sub ${StackName}-${Environment}-user-webhook-endpoint

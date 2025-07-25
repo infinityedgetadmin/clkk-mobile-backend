@@ -158,3 +158,7 @@ The project includes GitHub Actions workflows for automated deployment:
 ## Commit Guidelines
 
 - **Do not add attribution on commits**
+
+## Deployment Restrictions
+
+- **Strictly no deployments to AWS**
