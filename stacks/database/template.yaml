@@ -50,8 +50,6 @@ Resources:
           AttributeType: S
         - AttributeName: TypeStatusKey
           AttributeType: S
-        - AttributeName: Domain
-          AttributeType: S
       KeySchema:
         - AttributeName: PK
           KeyType: HASH
