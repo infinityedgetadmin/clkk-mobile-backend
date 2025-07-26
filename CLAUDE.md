@@ -150,3 +150,15 @@ The project includes GitHub Actions workflows for automated deployment:
   - For SaaS development: `AWS_PROFILE=clkk-saas-dev`
   - Always set `AWS_SDK_LOAD_CONFIG=1` to ensure proper profile loading
   - These configurations should prefix all AWS API requests to ensure correct account and permissions
+  - For production AWS profile use clkk-saas-prod as the profile 
+
+### Additional Guidance
+- **Always specify AWS profile while doing API calls.**
+
+## Commit Guidelines
+
+- **Do not add attribution on commits**
+
+## Deployment Restrictions
+
+- **Strictly no deployments to AWS**

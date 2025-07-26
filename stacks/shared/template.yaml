@@ -166,7 +166,7 @@ Resources:
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "${StackName}-lambda-execution-role"
+      # RoleName: !Sub "${StackName}-lambda-execution-role" # Removed to avoid CAPABILITY_NAMED_IAM
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -260,3 +260,9 @@ Outputs:
     Value: !GetAtt LambdaExecutionRole.Arn
     Export:
       Name: !Sub "${StackName}-LambdaExecutionRoleArn"
+  
+  ClerkWebhookSecretArn:
+    Description: ARN of the Clerk webhook secret
+    Value: !Ref ClerkWebhookSecret
+    Export:
+      Name: !Sub "${StackName}-ClerkWebhookSecretArn"

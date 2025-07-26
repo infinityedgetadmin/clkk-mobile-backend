@@ -5,6 +5,7 @@
 
 export { BaseEntity } from './base-entity';
 export { User } from './user.entity';
+export { User as UserEntity, UserData } from './user';
 
 // Future entities to be added:
 // export { Transaction } from './transaction.entity';

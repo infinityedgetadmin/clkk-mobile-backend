@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "outDir": "./dist",
+    "strict": true,
+    "baseUrl": "../../../../layers",
+    "paths": {
+      "constants": ["./constants/nodejs/src/index"],
+      "common": ["./common/nodejs/src/index"],
+      "entities": ["./entities/nodejs/src/index"],
+      "repositories": ["./repositories/nodejs/src/index"],
+      "powertools": ["./powertools/nodejs/src/index"],
+      "graphql-types": ["./graphql-types/nodejs/src/index"]
+    },
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowJs": true,
+    "noEmit": true
+  },
+  "include": [
+    "**/*.ts",
+    "../../../../layers/constants/**/*.ts",
+    "../../../../layers/common/**/*.ts",
+    "../../../../layers/entities/**/*.ts",
+    "../../../../layers/repositories/**/*.ts",
+    "../../../../layers/powertools/**/*.ts",
+    "../../../../layers/graphql-types/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

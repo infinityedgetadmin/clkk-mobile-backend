@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Cross-Account DNS Custom Resource for Mobile (Deploy in DEV/STAGING account)
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: The deployment environment
+
+Resources:
+  # Lambda execution role
+  DNSManagerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Environment}-clkk-mobile-dns-manager-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AssumeProductionDNSRole
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: "arn:aws:iam::422160113808:role/clkk-cross-account-dns-role-mobile"
+
+  # Lambda function to manage DNS records
+  CrossAccountDNSFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Environment}-clkk-mobile-cross-account-dns"
+      Description: Manages DNS records in production account Route53 for mobile
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt DNSManagerRole.Arn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          PROD_ROLE_ARN: "arn:aws:iam::422160113808:role/clkk-cross-account-dns-role-mobile"
+          EXTERNAL_ID: "clkk-dns-management"
+      InlineCode: |
+        import json
+        import boto3
+        import cfnresponse
+        import os
+
+        def handler(event, context):
+            print(f"Event: {json.dumps(event)}")
+            
+            try:
+                request_type = event['RequestType']
+                properties = event['ResourceProperties']
+                
+                # Get parameters
+                hosted_zone_id = properties['HostedZoneId']
+                record_name = properties['RecordName']
+                record_type = properties['RecordType']
+                
+                # Assume role in prod account
+                sts = boto3.client('sts')
+                assumed_role = sts.assume_role(
+                    RoleArn=os.environ['PROD_ROLE_ARN'],
+                    RoleSessionName='CrossAccountDNS',
+                    ExternalId=os.environ['EXTERNAL_ID']
+                )
+                
+                # Create Route53 client with assumed credentials
+                route53 = boto3.client(
+                    'route53',
+                    aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
+                    aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
+                    aws_session_token=assumed_role['Credentials']['SessionToken']
+                )
+                
+                # Prepare the change batch
+                change_batch = {
+                    'Changes': [{
+                        'Action': 'DELETE' if request_type == 'Delete' else 'UPSERT',
+                        'ResourceRecordSet': {
+                            'Name': record_name,
+                            'Type': record_type
+                        }
+                    }]
+                }
+                
+                # Handle different record types
+                if record_type == 'A' and 'AliasTarget' in properties:
+                    # Alias record
+                    evaluate_health = properties['AliasTarget'].get('EvaluateTargetHealth', False)
+                    # Convert string to boolean if needed
+                    if isinstance(evaluate_health, str):
+                        evaluate_health = evaluate_health.lower() == 'true'
+                    
+                    change_batch['Changes'][0]['ResourceRecordSet']['AliasTarget'] = {
+                        'DNSName': properties['AliasTarget']['DNSName'],
+                        'HostedZoneId': properties['AliasTarget']['HostedZoneId'],
+                        'EvaluateTargetHealth': evaluate_health
+                    }
+                elif 'ResourceRecords' in properties:
+                    # Standard record
+                    change_batch['Changes'][0]['ResourceRecordSet']['TTL'] = int(properties.get('TTL', 300))
+                    change_batch['Changes'][0]['ResourceRecordSet']['ResourceRecords'] = properties['ResourceRecords']
+                
+                if request_type != 'Delete' or record_exists(route53, hosted_zone_id, record_name, record_type):
+                    # Apply the change
+                    response = route53.change_resource_record_sets(
+                        HostedZoneId=hosted_zone_id,
+                        ChangeBatch=change_batch
+                    )
+                    print(f"Route53 change response: {response}")
+                
+                # Return success
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                    'RecordName': record_name,
+                    'ChangeId': response.get('ChangeInfo', {}).get('Id', 'N/A') if request_type != 'Delete' else 'N/A'
+                })
+                
+            except Exception as e:
+                print(f"Error: {str(e)}")
+                cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+
+        def record_exists(route53, hosted_zone_id, record_name, record_type):
+            """Check if a record exists before trying to delete it"""
+            try:
+                response = route53.list_resource_record_sets(
+                    HostedZoneId=hosted_zone_id,
+                    StartRecordName=record_name,
+                    StartRecordType=record_type,
+                    MaxItems='1'
+                )
+                
+                for record in response.get('ResourceRecordSets', []):
+                    if record['Name'] == record_name and record['Type'] == record_type:
+                        return True
+                return False
+            except:
+                return False
+
+Outputs:
+  DNSFunctionArn:
+    Description: ARN of the Cross-Account DNS Lambda function
+    Value: !GetAtt CrossAccountDNSFunction.Arn
+    Export:
+      Name: !Sub "${Environment}-mobile-cross-account-dns-function-arn"

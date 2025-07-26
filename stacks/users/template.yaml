@@ -1,0 +1,375 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Users service stack for CLKK Backend V3
+
+Parameters:
+  StackName:
+    Type: String
+    Description: Base name for the stack
+  Environment:
+    Type: String
+    Description: Environment name (dev, staging, prod)
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+  TableName:
+    Type: String
+    Description: DynamoDB table name
+  LayerVersionArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
+  PowertoolsLayerArn:
+    Type: String
+    Description: ARN of the Powertools Lambda layer
+  LogRetentionInDays:
+    Type: Number
+    Default: 7
+    Description: CloudWatch logs retention period
+  ApiId:
+    Type: String
+    Description: AppSync API ID
+  ApiEndpoint:
+    Type: String
+    Description: AppSync API endpoint
+  ClerkWebhookSecretArn:
+    Type: String
+    Description: ARN of the Clerk webhook secret
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 1024
+    Runtime: nodejs18.x
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref TableName
+        ENVIRONMENT: !Ref Environment
+        LOG_LEVEL: INFO
+        POWERTOOLS_SERVICE_NAME: users-service
+        POWERTOOLS_METRICS_NAMESPACE: CLKK
+    Layers:
+      - !Ref LayerVersionArn
+      - !Ref PowertoolsLayerArn
+    Tracing: Active
+
+Resources:
+  # Webhook REST API
+  WebhookApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "${StackName}-${Environment}-webhook-api"
+      Description: "CLKK Webhook API for user service"
+      StageName: !Ref Environment
+      TracingEnabled: true
+      Cors:
+        AllowMethods: "'POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,svix-id,svix-timestamp,svix-signature'"
+        AllowOrigin: "'*'"
+        MaxAge: "'600'"
+  # Webhook Handler Function
+  WebhookHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${StackName}-${Environment}-user-webhook-handler
+      CodeUri: ../../services/users/functions/webhook-handler/
+      Handler: index.handler
+      Description: Handles Clerk user webhooks
+      Environment:
+        Variables:
+          FUNCTION_NAME: user-webhook-handler
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        External:
+          - constants
+          - common
+          - entities
+          - repositories
+          - powertools
+          - graphql-types
+          - "@aws-lambda-powertools/*"
+          - "@aws-sdk/*"
+        Minify: true
+        Target: es2020
+        Sourcemap: true
+        EntryPoints:
+          - index.ts
+    Policies:
+      - DynamoDBReadPolicy:
+          TableName: !Ref TableName
+      - DynamoDBWritePolicy:
+          TableName: !Ref TableName
+      - Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:Query
+            Resource:
+              - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableName}/index/*
+      - Statement:
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: !Ref ClerkWebhookSecretArn
+    Events:
+      WebhookEvent:
+        Type: Api
+        Properties:
+          RestApiId: !Ref WebhookApi
+          Path: /webhooks/clerk/users
+          Method: POST
+
+  # Lambda function for GraphQL resolvers
+  UserResolverFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${StackName}-${Environment}-user-resolver
+      CodeUri: ../../services/users/functions/resolver/
+      Handler: index.handler
+      Description: GraphQL resolver for user operations
+      Environment:
+        Variables:
+          FUNCTION_NAME: user-resolver
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        External:
+          - constants
+          - common
+          - entities
+          - repositories
+          - powertools
+          - graphql-types
+          - "@aws-lambda-powertools/*"
+          - "@aws-sdk/*"
+        Minify: true
+        Target: es2020
+        Sourcemap: true
+        EntryPoints:
+          - index.ts
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TableName
+        - DynamoDBWritePolicy:
+            TableName: !Ref TableName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource:
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableName}/index/*
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+        - AWSXRayDaemonWriteAccess
+
+  # CloudWatch Log Groups
+  WebhookHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${WebhookHandlerFunction}
+      RetentionInDays: !Ref LogRetentionInDays
+
+  UserResolverLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${UserResolverFunction}
+      RetentionInDays: !Ref LogRetentionInDays
+
+  # AppSync Data Source for User Resolver
+  UserResolverDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !Ref ApiId
+      Name: UserResolverDataSource
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt AppSyncServiceRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt UserResolverFunction.Arn
+
+  # IAM Role for AppSync
+  AppSyncServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: appsync.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeLambdaFunction
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt UserResolverFunction.Arn
+
+  # GraphQL Resolvers
+  GetUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !Ref ApiId
+      TypeName: Query
+      FieldName: getUser
+      DataSourceName: !GetAtt UserResolverDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": {
+            "field": "getUser",
+            "arguments": $util.toJson($context.arguments),
+            "identity": $util.toJson($context.identity),
+            "source": $util.toJson($context.source)
+          }
+        }
+      ResponseMappingTemplate: |
+        $util.toJson($context.result)
+
+  GetUserByClerkIdResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !Ref ApiId
+      TypeName: Query
+      FieldName: getUserByClerkId
+      DataSourceName: !GetAtt UserResolverDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": {
+            "field": "getUserByClerkId",
+            "arguments": $util.toJson($context.arguments),
+            "identity": $util.toJson($context.identity),
+            "source": $util.toJson($context.source)
+          }
+        }
+      ResponseMappingTemplate: |
+        $util.toJson($context.result)
+
+  GetUserByEmailResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !Ref ApiId
+      TypeName: Query
+      FieldName: getUserByEmail
+      DataSourceName: !GetAtt UserResolverDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": {
+            "field": "getUserByEmail",
+            "arguments": $util.toJson($context.arguments),
+            "identity": $util.toJson($context.identity),
+            "source": $util.toJson($context.source)
+          }
+        }
+      ResponseMappingTemplate: |
+        $util.toJson($context.result)
+
+  GetUserByClkkTagResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !Ref ApiId
+      TypeName: Query
+      FieldName: getUserByClkkTag
+      DataSourceName: !GetAtt UserResolverDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": {
+            "field": "getUserByClkkTag",
+            "arguments": $util.toJson($context.arguments),
+            "identity": $util.toJson($context.identity),
+            "source": $util.toJson($context.source)
+          }
+        }
+      ResponseMappingTemplate: |
+        $util.toJson($context.result)
+
+  CreateUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !Ref ApiId
+      TypeName: Mutation
+      FieldName: createUser
+      DataSourceName: !GetAtt UserResolverDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": {
+            "field": "createUser",
+            "arguments": $util.toJson($context.arguments),
+            "identity": $util.toJson($context.identity),
+            "source": $util.toJson($context.source)
+          }
+        }
+      ResponseMappingTemplate: |
+        $util.toJson($context.result)
+
+  UpdateUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !Ref ApiId
+      TypeName: Mutation
+      FieldName: updateUser
+      DataSourceName: !GetAtt UserResolverDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": {
+            "field": "updateUser",
+            "arguments": $util.toJson($context.arguments),
+            "identity": $util.toJson($context.identity),
+            "source": $util.toJson($context.source)
+          }
+        }
+      ResponseMappingTemplate: |
+        $util.toJson($context.result)
+
+  ProcessClerkWebhookResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !Ref ApiId
+      TypeName: Mutation
+      FieldName: processClerkWebhook
+      DataSourceName: !GetAtt UserResolverDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": {
+            "field": "processClerkWebhook",
+            "arguments": $util.toJson($context.arguments),
+            "identity": $util.toJson($context.identity),
+            "source": $util.toJson($context.source)
+          }
+        }
+      ResponseMappingTemplate: |
+        $util.toJson($context.result)
+
+Outputs:
+  UserResolverFunctionArn:
+    Description: ARN of the user resolver Lambda function
+    Value: !GetAtt UserResolverFunction.Arn
+    Export:
+      Name: !Sub ${StackName}-${Environment}-user-resolver-arn
+  
+  UserWebhookHandlerArn:
+    Description: ARN of the user webhook handler Lambda function
+    Value: !GetAtt WebhookHandlerFunction.Arn
+    Export:
+      Name: !Sub ${StackName}-${Environment}-user-webhook-handler-arn
+  
+  UserWebhookEndpoint:
+    Description: User webhook endpoint URL
+    Value: !Sub "https://${WebhookApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/webhooks/clerk/users"
+    Export:
+      Name: !Sub ${StackName}-${Environment}-user-webhook-endpoint

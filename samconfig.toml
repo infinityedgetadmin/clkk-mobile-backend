@@ -22,7 +22,7 @@ watch = true
 
 [dev]
 [dev.global.parameters]
-stack_name = "clkk-backend-dev"
+stack_name = "clkk-mobile-backend-dev"
 
 [dev.deploy.parameters]
 s3_prefix = "dev"
@@ -32,7 +32,7 @@ confirm_changeset = false
 
 [staging]
 [staging.global.parameters]
-stack_name = "clkk-backend-staging"
+stack_name = "clkk-mobile-backend-staging"
 
 [staging.deploy.parameters]
 s3_prefix = "staging"
@@ -42,7 +42,7 @@ confirm_changeset = true
 
 [prod]
 [prod.global.parameters]
-stack_name = "clkk-backend-prod"
+stack_name = "clkk-mobile-backend-prod"
 
 [prod.deploy.parameters]
 s3_prefix = "prod"
