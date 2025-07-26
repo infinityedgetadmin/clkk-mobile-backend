@@ -22,8 +22,8 @@ Resources:
   # Main application table with single-table design
   ApplicationTable:
     Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       TableName: !Sub "${StackName}-app-table"
       BillingMode: PAY_PER_REQUEST
